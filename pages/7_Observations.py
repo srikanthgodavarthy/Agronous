@@ -11,7 +11,7 @@ import uuid
 import streamlit as st
 
 from app.ui_helpers import require_active_season
-from auth.supabase_auth import get_current_user
+from auth.supabase_auth import SINGLE_USER_ID
 from db.base import session_scope
 from repositories import observation_repo
 from services.ai_engine import analyze_observation, is_ai_configured
@@ -47,7 +47,6 @@ def _upload_photo(image_bytes: bytes, media_type: str, season_id) -> tuple[str |
 
 
 ctx = require_active_season()
-user = get_current_user()
 season_id = ctx["season_id"]
 
 st.title("📸 Observations")
@@ -99,7 +98,7 @@ with st.form("add_observation_form", clear_on_submit=True):
                 observation = observation_repo.create_observation(
                     session,
                     season_id=season_id,
-                    user_id=uuid.UUID(user.id),
+                    user_id=SINGLE_USER_ID,
                     note=note.strip() or None,
                     image_url=image_url,
                 )

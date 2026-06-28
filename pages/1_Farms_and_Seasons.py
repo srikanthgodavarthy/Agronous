@@ -11,7 +11,7 @@ from datetime import date
 
 import streamlit as st
 
-from auth.supabase_auth import require_login
+from auth.supabase_auth import SINGLE_USER_ID
 from db.base import session_scope
 from db.models import SeasonStatus
 from repositories import crop_repo, farm_repo, season_repo
@@ -19,7 +19,7 @@ from services.schedule_engine import generate_schedule_for_season
 
 st.set_page_config(page_title="Farms & Seasons - Cultivation", page_icon="🌱", layout="wide")
 
-user = require_login()
+
 st.title("🚜 Farms & Seasons")
 
 tab_seasons, tab_farms = st.tabs(["Seasons", "Farms"])
@@ -31,7 +31,7 @@ with tab_farms:
     st.subheader("Your Farms")
 
     with session_scope() as session:
-        farms = farm_repo.list_farms(session, uuid.UUID(user.id))
+        farms = farm_repo.list_farms(session, SINGLE_USER_ID)
         farms_data = [(f.id, f.name, f.location, f.total_area, f.area_unit) for f in farms]
 
     if farms_data:
@@ -62,7 +62,7 @@ with tab_farms:
                 with session_scope() as session:
                     farm_repo.create_farm(
                         session,
-                        uuid.UUID(user.id),
+                        SINGLE_USER_ID,
                         name=farm_name.strip(),
                         location=location.strip() or None,
                         total_area=total_area or None,
@@ -78,8 +78,8 @@ with tab_seasons:
     st.subheader("Your Cultivation Seasons")
 
     with session_scope() as session:
-        farms = farm_repo.list_farms(session, uuid.UUID(user.id))
-        seasons = season_repo.list_seasons(session, uuid.UUID(user.id))
+        farms = farm_repo.list_farms(session, SINGLE_USER_ID)
+        seasons = season_repo.list_seasons(session, SINGLE_USER_ID)
         seasons_data = [
             (
                 s.id,
@@ -109,13 +109,13 @@ with tab_seasons:
                     bc1, bc2 = st.columns(2)
                     if bc1.button("Mark Completed", key=f"complete_{sid}"):
                         with session_scope() as session:
-                            season_obj = season_repo.get_season(session, uuid.UUID(user.id), sid)
+                            season_obj = season_repo.get_season(session, SINGLE_USER_ID, sid)
                             season_repo.update_season_status(session, season_obj, SeasonStatus.COMPLETED)
                         st.success("Season marked as completed.")
                         st.rerun()
                     if bc2.button("Abandon", key=f"abandon_{sid}"):
                         with session_scope() as session:
-                            season_obj = season_repo.get_season(session, uuid.UUID(user.id), sid)
+                            season_obj = season_repo.get_season(session, SINGLE_USER_ID, sid)
                             season_repo.update_season_status(session, season_obj, SeasonStatus.ABANDONED)
                         st.warning("Season marked as abandoned.")
                         st.rerun()
@@ -174,7 +174,7 @@ with tab_seasons:
                         else:
                             season = season_repo.create_season(
                                 session,
-                                user_id=uuid.UUID(user.id),
+                                user_id=SINGLE_USER_ID,
                                 farm_id=farm_id,
                                 crop_id=crop_id,
                                 crop_template_version_id=current_version.id,

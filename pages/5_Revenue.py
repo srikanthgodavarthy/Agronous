@@ -11,14 +11,13 @@ import plotly.express as px
 import streamlit as st
 
 from app.ui_helpers import apply_plotly_theme, format_currency, require_active_season
-from auth.supabase_auth import get_current_user
+from auth.supabase_auth import SINGLE_USER_ID
 from db.base import session_scope
 from repositories import revenue_repo
 
 st.set_page_config(page_title="Revenue - Cultivation", page_icon="📈", layout="wide")
 
 ctx = require_active_season()
-user = get_current_user()
 season_id = ctx["season_id"]
 
 st.title("📈 Revenue")
@@ -93,7 +92,7 @@ with right:
                     revenue_repo.create_revenue(
                         session,
                         season_id=season_id,
-                        user_id=uuid.UUID(user.id),
+                        user_id=SINGLE_USER_ID,
                         sale_date=sale_date,
                         quantity=quantity,
                         price_per_unit=price_per_unit,
