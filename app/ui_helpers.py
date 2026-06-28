@@ -1,7 +1,6 @@
 """
-Shared helpers used across every Streamlit page: currency formatting, the
-sidebar Farm/Season selector (the only "context switch" in the whole app),
-and small Plotly theming helpers so charts look consistent everywhere.
+Shared helpers: currency formatting, sidebar Farm/Season selector, Plotly theming.
+Single-user mode: no auth guard, user_id comes from auth.supabase_auth.SINGLE_USER_ID.
 """
 from __future__ import annotations
 
@@ -10,7 +9,7 @@ from datetime import date
 
 import streamlit as st
 
-from auth.supabase_auth import get_current_user
+from auth.supabase_auth import SINGLE_USER_ID
 from db.base import session_scope
 from repositories import farm_repo, season_repo
 from services.schedule_engine import calculate_das, current_stage_name
@@ -48,20 +47,15 @@ def render_sidebar_context() -> dict | None:
     """
     Renders the Farm -> Season picker in the sidebar and returns the
     currently selected season as a dict of useful derived fields, or None
-    if the user has no farms/seasons yet. Selection is cached in
-    st.session_state so it persists across page navigation.
+    if there are no farms/seasons yet.
     """
-    user = get_current_user()
-    if user is None:
-        return None
-
     with session_scope() as session:
-        farms = farm_repo.list_farms(session, uuid.UUID(user.id))
+        farms = farm_repo.list_farms(session, SINGLE_USER_ID)
         if not farms:
             st.sidebar.info("No farms yet. Add one in **Farms & Seasons**.")
             return None
 
-        farm_options = {f"{f.name}": f.id for f in farms}
+        farm_options = {f.name: f.id for f in farms}
         default_farm_id = st.session_state.get("active_farm_id")
         default_farm_name = next((name for name, fid in farm_options.items() if fid == default_farm_id), None)
         farm_names = list(farm_options.keys())
@@ -71,7 +65,7 @@ def render_sidebar_context() -> dict | None:
         selected_farm_id = farm_options[selected_farm_name]
         st.session_state["active_farm_id"] = selected_farm_id
 
-        seasons = season_repo.list_seasons(session, uuid.UUID(user.id))
+        seasons = season_repo.list_seasons(session, SINGLE_USER_ID)
         seasons = [s for s in seasons if s.farm_id == selected_farm_id]
 
         if not seasons:
@@ -114,7 +108,7 @@ def render_sidebar_context() -> dict | None:
 
 
 def require_active_season() -> dict:
-    """Use on pages that need an active season selected; stops the page otherwise."""
+    """Stops the page with a welcome message if no season is selected."""
     ctx = render_sidebar_context()
     if ctx is None:
         st.title("👋 Welcome to Cultivation")
