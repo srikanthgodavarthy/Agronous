@@ -43,21 +43,29 @@ PRODUCT_HINTS = {
     "imidacloprid":          {"dose": "0.5 ml/L",   "combo": "Imidacloprid 17.8 SL",          "note": "YVMV vector control. PHI: 7 days."},
     "mancozeb":              {"dose": "2.5 g/L",    "combo": "Mancozeb 75 WP",                "note": "Cercospora leaf spot. Apply at first sign."},
     "neem":                  {"dose": "5 ml/L",     "combo": "Neem Oil 5000 ppm",             "note": "Broad mite/sucking pests. Evening spray only."},
-    # Okra (Bhindi) specific -- one-off sprays/fertilizers, matched by name
-    "basal + 1st top":       {"dose": "50 + 20 kg/acre", "combo": "DAP 18:46:0 + MOP 0:0:60",   "note": "Apply basal at sowing; band-place near root zone."},
-    "1st top dressing - nitrogen": {"dose": "40 kg/acre", "combo": "Urea 46% N",                "note": "Nitrogen split to fuel vegetative growth before flowering."},
-    "2nd top dressing":      {"dose": "25 + 15 kg/acre", "combo": "Urea 46% N + MOP 0:0:60",    "note": "Split N+K dose ahead of flowering."},
-    "sucking pest": {"dose": "0.5 g/L",         "combo": "Acetamiprid 20 SP",          "note": "Aphid/jassid/whitefly control. PHI: 5 days."},
-    "fruit borer / shoot borer": {"dose": "0.4 ml/L",    "combo": "Emamectin Benzoate 5 SG",    "note": "Targets fruit & shoot borer at flowering. PHI: 5 days."},
-    "3rd fertigation - flowering booster": {"dose": "00:52:34 @ 5 kg/acre", "combo": "MAP/00:52:34 + MOP 0:0:60", "note": "P+K fertigation to reduce flower drop and boost fruit set."},
-    # Okra (Bhindi) -- recurring commercial-template activities, matched by
-    # name only (never by remarks text, which describes monitoring targets
-    # like YVMV/whitefly in prose and must never itself trigger a product
-    # hint on a scouting or harvest card).
-    "foliar nutrition - balanced npk": {"dose": "19:19:19 @ 5 g/L", "combo": "Balanced NPK 19:19:19 + Calcium Nitrate 2 g/L", "note": "Flowering/fruiting vigour. Early morning or evening only."},
-    "plant recovery & strength":       {"dose": "0:0:50 @ 3 g/L",  "combo": "SOP/Potassium Schoenite 0:0:50 + Micronutrient mixture 2 g/L", "note": "Post-harvest recovery feed. Apply after a heavy picking round."},
-    "fruit quality management - colour": {"dose": "0:0:50 @ 3 g/L + Boron 1 g/L", "combo": "SOP 0:0:50 + Borax/Boron 1 g/L + Magnesium Sulphate 2 g/L", "note": "Improves colour, size uniformity and reduces curvature."},
-    "fruit quality management - shelf":  {"dose": "Calcium Nitrate 2 g/L + SOP 3 g/L", "combo": "Calcium Nitrate + SOP 0:0:50", "note": "Firms pod texture for better shelf life and market grade."},
+    # Okra (Bhindi) -- Vikarabad checklist activities, matched by exact
+    # activity name. Remarks text is never searched for these (only name),
+    # since remarks legitimately describe pests/diseases being scouted for
+    # (e.g. "watch for YVMV") without that being a product recommendation.
+    "basal dose - dap + potash":   {"dose": "40 + 35 kg/acre", "combo": "DAP 18:46:0 (40 kg/acre) + MOP (35 kg/acre)", "note": "Mix into soil before sowing."},
+    "top dressing #1 - ammonium sulphate": {"dose": "75 kg/acre", "combo": "Ammonium Sulphate (AS 20.6% N)", "note": "Broadcast between rows and irrigate immediately."},
+    "whitefly / aphid control - imidacloprid": {"dose": "0.5 ml/L", "combo": "Imidacloprid 17.8 SL", "note": "YVMV vector control. If high population."},
+    "zinc + boron foliar spray":   {"dose": "0.5 g/L + 1 g/L", "combo": "Zinc Sulphate (ZnSO4) + Borax (Boron)", "note": "Corrects micronutrient deficiency common after maize in red soils."},
+    "npk foliar spray":            {"dose": "5 g/L", "combo": "Water Soluble NPK 19:19:19 (Multi-K / Kristalon)", "note": "Vegetative vigour ahead of flowering."},
+    "top dressing #2 - can or complex": {"dose": "40 kg/acre", "combo": "CAN 25% N OR Complex Fertilizer 20:20:0", "note": "Broadcast and irrigate."},
+    "mite / whitefly control - neem": {"dose": "5 ml/L", "combo": "Neem Oil", "note": "Evening only."},
+    "fsb control - spinosad":      {"dose": "0.3 ml/L", "combo": "Spinosad 45 SC", "note": "Evening only. Do not spray 10am-4pm flowering hours."},
+    "fruit set spray - boron + calcium": {"dose": "1 g/L + 2 g/L", "combo": "Borax (Boron) + Calcium Nitrate (CaNO3)", "note": "Improves fruit set and reduces flower drop. Spray on leaves and buds."},
+    "fsb control (rotation) - emamectin": {"dose": "0.4 ml/L", "combo": "Emamectin Benzoate", "note": "Rotate from Spinosad to avoid resistance build-up."},
+    "powdery mildew watch":        {"dose": "3 g/L", "combo": "Wettable Sulphur", "note": "If white powder appears on leaves."},
+    "fruiting boost - mkp spray":  {"dose": "3 g/L", "combo": "Mono Potassium Phosphate (MKP 0:52:34)", "note": "Boosts pod setting and early yield."},
+    "red spider mite control":     {"dose": "0.5 ml/L or 2 ml/L", "combo": "Abamectin OR Dicofol", "note": "For red spider mite."},
+    "cercospora leaf spot control": {"dose": "2.5 g/L", "combo": "Mancozeb", "note": "For Cercospora leaf spot."},
+    "top dressing #3 - ammonium sulphate + potash": {"dose": "30 + 20 kg/acre", "combo": "Ammonium Sulphate + MOP", "note": "Extends yield period."},
+    "broad spectrum control":      {"dose": "2 ml/L", "combo": "Profenofos", "note": "If multiple pests observed together."},
+    "plant stamina - seaweed spray": {"dose": "3 ml/L", "combo": "Seaweed Extract (Seasol / Kelpak / any brand)", "note": "Improves plant stamina and stress tolerance."},
+    "fsb control - indoxacarb / chlorpyrifos": {"dose": "0.7 ml/L or 2 ml/L", "combo": "Indoxacarb OR Chlorpyrifos", "note": "Continued FSB rotation."},
+    "pod quality spray - potassium nitrate": {"dose": "5 g/L", "combo": "Potassium Nitrate (NOP 13:00:45 / SOP)", "note": "Improves pod size, colour, shelf life and market quality."},
 }
 
 def _get_hint(name: str, remarks: str, category: str | None = None) -> dict | None:
