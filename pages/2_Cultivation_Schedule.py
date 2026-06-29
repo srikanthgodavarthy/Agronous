@@ -44,11 +44,11 @@ PRODUCT_HINTS = {
     "mancozeb":              {"dose": "2.5 g/L",    "combo": "Mancozeb 75 WP",                "note": "Cercospora leaf spot. Apply at first sign."},
     "neem":                  {"dose": "5 ml/L",     "combo": "Neem Oil 5000 ppm",             "note": "Broad mite/sucking pests. Evening spray only."},
     # Okra (Bhindi) specific
-    "basal + 1st top":       {"dose": "DAP 50 kg + MOP 20 kg/acre",   "combo": "DAP 18:46:0 + MOP 0:0:60", "note": "Apply basal at sowing; band-place near root zone."},
-    "2nd top dressing":      {"dose": "Urea 25 kg + MOP 15 kg/acre",  "combo": "Urea 46% N + MOP 0:0:60",  "note": "Split N+K dose ahead of flowering."},
-    "sucking pest":          {"dose": "0.5 g/L",    "combo": "Acetamiprid 20 SP",              "note": "Aphid/jassid/whitefly control. PHI: 5 days."},
-    "fruit borer / shoot borer": {"dose": "0.4 ml/L", "combo": "Emamectin Benzoate 5 SG",      "note": "Targets fruit & shoot borer at flowering. PHI: 5 days."},
-    "yellow vein mosaic":    {"dose": "0.3 ml/L",   "combo": "Spinosad 45 SC",                 "note": "Whitefly/YVMV vector control. Evening only. PHI: 1 day."},
+    "basal + 1st top":       {"dose": "50 + 20 kg/acre", "combo": "DAP 18:46:0 + MOP 0:0:60",   "note": "Apply basal at sowing; band-place near root zone."},
+    "2nd top dressing":      {"dose": "25 + 15 kg/acre", "combo": "Urea 46% N + MOP 0:0:60",    "note": "Split N+K dose ahead of flowering."},
+    "sucking pest":          {"dose": "0.5 g/L",         "combo": "Acetamiprid 20 SP",          "note": "Aphid/jassid/whitefly control. PHI: 5 days."},
+    "fruit borer / shoot borer": {"dose": "0.4 ml/L",    "combo": "Emamectin Benzoate 5 SG",    "note": "Targets fruit & shoot borer at flowering. PHI: 5 days."},
+    "yellow vein mosaic":    {"dose": "0.3 ml/L",        "combo": "Spinosad 45 SC",             "note": "Whitefly/YVMV vector control. Evening only. PHI: 1 day."},
 }
 
 def _get_hint(name: str, remarks: str) -> dict | None:
@@ -103,6 +103,13 @@ st.markdown("""
 .act-meta {
     font-size: 10px; color: #888; text-align: center; line-height: 1.5;
 }
+.act-product {
+    font-size: 10px; font-weight: 600; color: #5a4a8a;
+    background: rgba(130,60,180,0.08); border: 0.5px solid rgba(130,60,180,0.18);
+    border-radius: 6px; padding: 3px 6px; text-align: center; line-height: 1.4;
+    width: 100%; box-sizing: border-box;
+}
+.act-product .dose { font-weight: 400; color: #6a5a98; }
 .act-spacer { flex: 1; }
 .act-btns { display: flex; gap: 8px; justify-content: center; }
 .act-btn {
@@ -181,12 +188,17 @@ for tab_idx, tab in enumerate(tabs):
                 card_style = STATUS_CARD_STYLE.get(eff_status, STATUS_CARD_STYLE["PENDING"])
                 meta        = CATEGORY_META.get(row["category"], CATEGORY_META["OTHER"])
                 date_str    = row["activity_date"].strftime("%d %b")
+                hint        = _get_hint(row["name"], row["remarks"])
+                product_html = ""
+                if hint and row["category"] in ("FERTILIZER", "SPRAY"):
+                    product_html = f"<div class='act-product'>{hint['combo']}<br><span class='dose'>{hint['dose']}</span></div>"
 
                 cards_html += f"""
                 <div class='act-card' style='{card_style}'>
                     <div class='act-icon' style='background:{meta["bg"]}'>{meta["icon"]}</div>
                     <div class='act-name'>{row["name"]}</div>
                     <div class='act-meta'>{date_str}<br>DAS {row["das"]}<br>{meta["label"]}</div>
+                    {product_html}
                     <div class='act-spacer'></div>
                     <div class='act-btns'>
                         <span class='act-btn btn-done' title='Mark done'>✓</span>
