@@ -38,9 +38,30 @@ PRODUCT_HINTS = {
     "emamectin":  {"dose": "0.4 ml/L",  "note": "Rotate from Spinosad. PHI: 5 days."},
     "mancozeb":   {"dose": "2.5 g/L",   "note": "Cercospora leaf spot. Apply at first sign."},
     "neem":       {"dose": "5 ml/L",    "note": "Broad mite/sucking pests. Evening spray only."},
+    # Okra (Bhindi) specific -- one-off sprays/fertilizers, matched by name
+    "basal + 1st top":      {"dose": "50 + 20 kg/acre", "note": "Apply basal at sowing; band-place near root zone."},
+    "1st top dressing - nitrogen": {"dose": "40 kg/acre", "note": "Nitrogen split to fuel vegetative growth before flowering."},
+    "2nd top dressing":     {"dose": "25 + 15 kg/acre", "note": "Split N+K dose ahead of flowering."},
+    "sucking pest": {"dose": "0.5 g/L", "note": "Aphid/jassid/whitefly control. PHI: 5 days."},
+    "fruit borer / shoot borer": {"dose": "0.4 ml/L", "note": "Targets fruit & shoot borer at flowering. PHI: 5 days."},
+    "3rd fertigation - flowering booster": {"dose": "00:52:34 @ 5 kg/acre", "note": "P+K fertigation to reduce flower drop and boost fruit set."},
+    # Okra (Bhindi) -- recurring commercial-template activities, matched by
+    # name only (never by remarks text, which describes monitoring targets
+    # like YVMV/whitefly in prose and must never itself trigger a product
+    # hint on a scouting or harvest card).
+    "foliar nutrition - balanced npk":   {"dose": "19:19:19 @ 5 g/L",               "note": "Flowering/fruiting vigour. Early morning or evening only."},
+    "plant recovery & strength":         {"dose": "0:0:50 @ 3 g/L",                 "note": "Post-harvest recovery feed. Apply after a heavy picking round."},
+    "fruit quality management - colour": {"dose": "0:0:50 @ 3 g/L + Boron 1 g/L",  "note": "Improves colour, size uniformity and reduces curvature."},
+    "fruit quality management - shelf":  {"dose": "Calcium Nitrate 2 g/L + SOP 3 g/L", "note": "Firms pod texture for better shelf life and market grade."},
 }
 
-def _get_hint(name: str, remarks: str) -> dict | None:
+def _get_hint(name: str, remarks: str, category: str | None = None) -> dict | None:
+    # Same guard as 2_Cultivation_Schedule.py: hints only ever apply to
+    # actual spray/fertilizer applications. Monitoring, harvest, irrigation
+    # and weeding remarks legitimately mention pest/disease names in prose
+    # without that being a product recommendation.
+    if category is not None and category not in ("FERTILIZER", "SPRAY"):
+        return None
     text = (name + " " + remarks).lower()
     for kw, hint in PRODUCT_HINTS.items():
         if kw in text:
@@ -169,7 +190,7 @@ def render_alert_group(priority: str, items: list[dict]) -> None:
         if not act:
             continue
         name    = act.name
-        hint    = _get_hint(name, act.remarks or "")
+        hint    = _get_hint(name, act.remarks or "", act.category.value)
         with st.expander(f"⚙ {name}", expanded=False):
             with st.form(f"alert_{priority}_{idx}_{act.id}"):
                 new_date    = st.date_input("Completion date", value=act.activity_date, key=f"ad_{priority}_{idx}")
