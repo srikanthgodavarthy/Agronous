@@ -68,7 +68,7 @@ with tab_farms:
                         total_area=total_area or None,
                         area_unit=area_unit,
                     )
-                st.success(f"Farm '{farm_name}' added.")
+                # rerun OUTSIDE session_scope so RerunException doesn't trigger rollback
                 st.rerun()
 
 # ---------------------------------------------------------------------------
@@ -111,13 +111,13 @@ with tab_seasons:
                         with session_scope() as session:
                             season_obj = season_repo.get_season(session, SINGLE_USER_ID, sid)
                             season_repo.update_season_status(session, season_obj, SeasonStatus.COMPLETED)
-                        st.success("Season marked as completed.")
+                        # rerun OUTSIDE session_scope
                         st.rerun()
                     if bc2.button("Abandon", key=f"abandon_{sid}"):
                         with session_scope() as session:
                             season_obj = season_repo.get_season(session, SINGLE_USER_ID, sid)
                             season_repo.update_season_status(session, season_obj, SeasonStatus.ABANDONED)
-                        st.warning("Season marked as abandoned.")
+                        # rerun OUTSIDE session_scope
                         st.rerun()
     else:
         st.info("No seasons yet. Start your first cultivation cycle below.")
@@ -160,37 +160,46 @@ with tab_seasons:
                     "Create Season & Generate Schedule", type="primary", use_container_width=True
                 )
 
-                if submitted:
-                    farm_id = farm_options[selected_farm_name]
-                    crop_id, _ = crop_options[selected_crop_label]
+            # Handle submission OUTSIDE the form block so st.rerun() is safe
+            if submitted:
+                farm_id = farm_options[selected_farm_name]
+                crop_id, _ = crop_options[selected_crop_label]
 
-                    with session_scope() as session:
-                        current_version = crop_repo.get_current_version(session, crop_id)
-                        if current_version is None:
-                            st.error(
-                                "This crop has no current template version configured. "
-                                "An administrator needs to set one before seasons can be created for it."
-                            )
-                        else:
-                            season = season_repo.create_season(
-                                session,
-                                user_id=SINGLE_USER_ID,
-                                farm_id=farm_id,
-                                crop_id=crop_id,
-                                crop_template_version_id=current_version.id,
-                                sowing_date=sowing_date,
-                                area=area,
-                                variety=variety.strip() or None,
-                                area_unit=area_unit,
-                                notes=notes.strip() or None,
-                            )
-                            activities = generate_schedule_for_season(session, season)
-                            st.session_state["active_farm_id"] = farm_id
-                            st.session_state["active_season_id"] = season.id
+                _success_msg = None
+                _error_msg = None
 
-                            st.success(
-                                f"Season created! Generated {len(activities)} scheduled activities "
-                                f"from the {selected_crop_label.split(' (')[0]} crop template "
-                                f"(version {current_version.version_number})."
-                            )
-                            st.rerun()
+                with session_scope() as session:
+                    current_version = crop_repo.get_current_version(session, crop_id)
+                    if current_version is None:
+                        _error_msg = (
+                            "This crop has no current template version configured. "
+                            "An administrator needs to set one before seasons can be created for it."
+                        )
+                    else:
+                        season = season_repo.create_season(
+                            session,
+                            user_id=SINGLE_USER_ID,
+                            farm_id=farm_id,
+                            crop_id=crop_id,
+                            crop_template_version_id=current_version.id,
+                            sowing_date=sowing_date,
+                            area=area,
+                            variety=variety.strip() or None,
+                            area_unit=area_unit,
+                            notes=notes.strip() or None,
+                        )
+                        activities = generate_schedule_for_season(session, season)
+                        st.session_state["active_farm_id"] = farm_id
+                        st.session_state["active_season_id"] = season.id
+                        _success_msg = (
+                            f"Season created! Generated {len(activities)} scheduled activities "
+                            f"from the {selected_crop_label.split(' (')[0]} crop template "
+                            f"(version {current_version.version_number})."
+                        )
+
+                # st.rerun() / st.error() called AFTER session_scope has closed and committed
+                if _error_msg:
+                    st.error(_error_msg)
+                elif _success_msg:
+                    st.success(_success_msg)
+                    st.rerun()
