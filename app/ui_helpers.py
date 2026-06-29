@@ -73,7 +73,7 @@ def render_sidebar_context() -> dict | None:
             return None
 
         def season_label(s):
-            tag = "🟢" if s.status.value == "Active" else "⚪"
+            tag = "🟢" if s.status.value == "ACTIVE" else "⚪"
             return f"{tag} {s.crop.name} - sown {s.sowing_date.strftime('%d %b %Y')}"
 
         season_options = {season_label(s): s.id for s in seasons}
