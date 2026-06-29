@@ -43,20 +43,37 @@ PRODUCT_HINTS = {
     "imidacloprid":          {"dose": "0.5 ml/L",   "combo": "Imidacloprid 17.8 SL",          "note": "YVMV vector control. PHI: 7 days."},
     "mancozeb":              {"dose": "2.5 g/L",    "combo": "Mancozeb 75 WP",                "note": "Cercospora leaf spot. Apply at first sign."},
     "neem":                  {"dose": "5 ml/L",     "combo": "Neem Oil 5000 ppm",             "note": "Broad mite/sucking pests. Evening spray only."},
-    # Okra (Bhindi) specific
+    # Okra (Bhindi) specific -- one-off sprays/fertilizers, matched by name
     "basal + 1st top":       {"dose": "50 + 20 kg/acre", "combo": "DAP 18:46:0 + MOP 0:0:60",   "note": "Apply basal at sowing; band-place near root zone."},
+    "1st top dressing - nitrogen": {"dose": "40 kg/acre", "combo": "Urea 46% N",                "note": "Nitrogen split to fuel vegetative growth before flowering."},
     "2nd top dressing":      {"dose": "25 + 15 kg/acre", "combo": "Urea 46% N + MOP 0:0:60",    "note": "Split N+K dose ahead of flowering."},
-    "sucking pest":          {"dose": "0.5 g/L",         "combo": "Acetamiprid 20 SP",          "note": "Aphid/jassid/whitefly control. PHI: 5 days."},
+    "sucking pest": {"dose": "0.5 g/L",         "combo": "Acetamiprid 20 SP",          "note": "Aphid/jassid/whitefly control. PHI: 5 days."},
     "fruit borer / shoot borer": {"dose": "0.4 ml/L",    "combo": "Emamectin Benzoate 5 SG",    "note": "Targets fruit & shoot borer at flowering. PHI: 5 days."},
-    "yellow vein mosaic":    {"dose": "0.3 ml/L",        "combo": "Spinosad 45 SC",             "note": "Whitefly/YVMV vector control. Evening only. PHI: 1 day."},
+    "3rd fertigation - flowering booster": {"dose": "00:52:34 @ 5 kg/acre", "combo": "MAP/00:52:34 + MOP 0:0:60", "note": "P+K fertigation to reduce flower drop and boost fruit set."},
+    # Okra (Bhindi) -- recurring commercial-template activities, matched by
+    # name only (never by remarks text, which describes monitoring targets
+    # like YVMV/whitefly in prose and must never itself trigger a product
+    # hint on a scouting or harvest card).
+    "foliar nutrition - balanced npk": {"dose": "19:19:19 @ 5 g/L", "combo": "Balanced NPK 19:19:19 + Calcium Nitrate 2 g/L", "note": "Flowering/fruiting vigour. Early morning or evening only."},
+    "plant recovery & strength":       {"dose": "0:0:50 @ 3 g/L",  "combo": "SOP/Potassium Schoenite 0:0:50 + Micronutrient mixture 2 g/L", "note": "Post-harvest recovery feed. Apply after a heavy picking round."},
+    "fruit quality management - colour": {"dose": "0:0:50 @ 3 g/L + Boron 1 g/L", "combo": "SOP 0:0:50 + Borax/Boron 1 g/L + Magnesium Sulphate 2 g/L", "note": "Improves colour, size uniformity and reduces curvature."},
+    "fruit quality management - shelf":  {"dose": "Calcium Nitrate 2 g/L + SOP 3 g/L", "combo": "Calcium Nitrate + SOP 0:0:50", "note": "Firms pod texture for better shelf life and market grade."},
 }
 
-def _get_hint(name: str, remarks: str) -> dict | None:
+def _get_hint(name: str, remarks: str, category: str | None = None) -> dict | None:
+    # Product hints only ever apply to actual spray/fertilizer applications.
+    # Monitoring, harvest, irrigation and weeding remarks legitimately
+    # mention pest/disease names in prose (e.g. "watch for YVMV symptoms")
+    # without that being a product recommendation -- searching remarks text
+    # for those categories produces misleading false-positive hints.
+    if category is not None and category not in ("FERTILIZER", "SPRAY"):
+        return None
     text = (name + " " + remarks).lower()
     for kw, hint in PRODUCT_HINTS.items():
         if kw in text:
             return hint
     return None
+
 
 def _week_label(sowing_date: date, activity_date: date) -> str:
     das = (activity_date - sowing_date).days
@@ -188,7 +205,7 @@ for tab_idx, tab in enumerate(tabs):
                 card_style = STATUS_CARD_STYLE.get(eff_status, STATUS_CARD_STYLE["PENDING"])
                 meta        = CATEGORY_META.get(row["category"], CATEGORY_META["OTHER"])
                 date_str    = row["activity_date"].strftime("%d %b")
-                hint        = _get_hint(row["name"], row["remarks"])
+                hint        = _get_hint(row["name"], row["remarks"], row["category"])
 
                 product_block = ""
                 if hint and row["category"] in ("FERTILIZER", "SPRAY"):
@@ -220,7 +237,7 @@ for tab_idx, tab in enumerate(tabs):
             # Native Streamlit action forms for each card (hidden under expander)
             for row in items:
                 eff_status = _effective_status(row, today)
-                hint = _get_hint(row["name"], row["remarks"])
+                hint = _get_hint(row["name"], row["remarks"], row["category"])
                 with st.expander(f"⚙ {row['name']}", expanded=False):
                     with st.form(f"manage_{tab_idx}_{row['id']}"):
                         new_date    = st.date_input("Completion date", value=row["activity_date"], key=f"d_{tab_idx}_{row['id']}")
