@@ -43,6 +43,12 @@ PRODUCT_HINTS = {
     "imidacloprid":          {"dose": "0.5 ml/L",   "combo": "Imidacloprid 17.8 SL",          "note": "YVMV vector control. PHI: 7 days."},
     "mancozeb":              {"dose": "2.5 g/L",    "combo": "Mancozeb 75 WP",                "note": "Cercospora leaf spot. Apply at first sign."},
     "neem":                  {"dose": "5 ml/L",     "combo": "Neem Oil 5000 ppm",             "note": "Broad mite/sucking pests. Evening spray only."},
+    # Okra (Bhindi) specific
+    "basal + 1st top":       {"dose": "DAP 50 kg + MOP 20 kg/acre",   "combo": "DAP 18:46:0 + MOP 0:0:60", "note": "Apply basal at sowing; band-place near root zone."},
+    "2nd top dressing":      {"dose": "Urea 25 kg + MOP 15 kg/acre",  "combo": "Urea 46% N + MOP 0:0:60",  "note": "Split N+K dose ahead of flowering."},
+    "sucking pest":          {"dose": "0.5 g/L",    "combo": "Acetamiprid 20 SP",              "note": "Aphid/jassid/whitefly control. PHI: 5 days."},
+    "fruit borer / shoot borer": {"dose": "0.4 ml/L", "combo": "Emamectin Benzoate 5 SG",      "note": "Targets fruit & shoot borer at flowering. PHI: 5 days."},
+    "yellow vein mosaic":    {"dose": "0.3 ml/L",   "combo": "Spinosad 45 SC",                 "note": "Whitefly/YVMV vector control. Evening only. PHI: 1 day."},
 }
 
 def _get_hint(name: str, remarks: str) -> dict | None:
