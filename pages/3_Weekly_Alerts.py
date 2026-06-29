@@ -133,7 +133,7 @@ def render_alert_group(priority: str, items: list[dict]) -> None:
 
     pm = PRIORITY_META[priority]
     st.markdown(
-        f"<div class='priority-pill' style='{pm[\"pill\"]}'>{pm['label']} · {len(items)} task{'s' if len(items)!=1 else ''}</div>",
+        f"<div class='priority-pill' style='{pm['pill']}'>{pm['label']} · {len(items)} task{'s' if len(items)!=1 else ''}</div>",
         unsafe_allow_html=True,
     )
 
