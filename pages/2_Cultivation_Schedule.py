@@ -306,41 +306,53 @@ for tab_idx, tab in enumerate(tabs):
                 ])
 
                 with col:
-                    # card-wrapper ties the card HTML and the button row
-                    # together inside one rounded, bordered container.
-                    st.markdown(
-                        f"<div class='card-wrapper'>{card_html}",
-                        unsafe_allow_html=True,
-                    )
-                    b1, b2, b3 = st.columns(3)
-                    if b1.button("✓", key=f"done_{tab_idx}_{row['id']}", help="Mark complete", use_container_width=True):
-                        with session_scope() as session:
-                            act = schedule_repo.get_activity(session, row["id"])
-                            if act:
-                                schedule_repo.mark_complete(session, act)
-                        st.rerun()
-                    if b2.button("⏭", key=f"skip_{tab_idx}_{row['id']}", help="Skip", use_container_width=True):
-                        with session_scope() as session:
-                            act = schedule_repo.get_activity(session, row["id"])
-                            if act:
-                                schedule_repo.mark_skipped(session, act)
-                        st.rerun()
-                    if b3.button("ⓘ", key=f"info_{tab_idx}_{row['id']}", help="Details", use_container_width=True):
-                        st.session_state[f"detail_{row['id']}"] = True
-                    st.markdown("</div>", unsafe_allow_html=True)
+                    # st.container(border=True) is Streamlit's native card —
+                    # anything rendered inside it, including buttons, is
+                    # visually enclosed within the card border.
+                    with st.container(border=True):
+                        st.markdown(card_html, unsafe_allow_html=True)
+                        st.markdown(
+                            "<hr style='margin:6px 0 4px 0; border:none; "
+                            "border-top:1px solid rgba(0,0,0,0.07)'>",
+                            unsafe_allow_html=True,
+                        )
+                        b1, b2, b3 = st.columns(3)
+                        if b1.button("✓", key=f"done_{tab_idx}_{row['id']}", help="Mark complete", use_container_width=True):
+                            with session_scope() as session:
+                                act = schedule_repo.get_activity(session, row["id"])
+                                if act:
+                                    schedule_repo.mark_complete(session, act)
+                            st.rerun()
+                        if b2.button("⏭", key=f"skip_{tab_idx}_{row['id']}", help="Skip", use_container_width=True):
+                            with session_scope() as session:
+                                act = schedule_repo.get_activity(session, row["id"])
+                                if act:
+                                    schedule_repo.mark_skipped(session, act)
+                            st.rerun()
+                        detail_key = f"detail_{row['id']}"
+                        if b3.button("ⓘ", key=f"info_{tab_idx}_{row['id']}", help="Details", use_container_width=True):
+                            st.session_state[detail_key] = not st.session_state.get(detail_key, False)
+                            st.rerun()
 
-                    # Details expander shown inline when ⓘ is pressed
+                    # Details panel toggled by ⓘ, shown below the card.
+                    # Purpose/Notes are already visible on the card as the
+                    # quick-line, so they are intentionally excluded here.
                     if st.session_state.get(f"detail_{row['id']}"):
                         parsed = _parse_remarks(row["remarks"])
                         hint   = _get_hint(row["name"], row["remarks"], row["category"])
-                        with st.expander("📋 Details", expanded=True):
-                            if hint:
-                                st.markdown(f"**Product:** {hint['combo']}  \n**Dose:** {hint['dose']}  \n**Note:** {hint['note']}")
-                            for label, text in parsed.items():
-                                st.markdown(f"**{label}:** {text}")
-                            if st.button("Close", key=f"close_{tab_idx}_{row['id']}"):
-                                st.session_state[f"detail_{row['id']}"] = False
-                                st.rerun()
+                        shown_on_card = {"Purpose", "Notes"}
+                        extra = {k: v for k, v in parsed.items() if k not in shown_on_card}
+                        if hint or extra:
+                            with st.container(border=True):
+                                st.caption("📋 Details")
+                                if hint:
+                                    st.markdown(
+                                        f"**Product:** {hint['combo']}  \n"
+                                        f"**Dose:** {hint['dose']}  \n"
+                                        f"**Note:** {hint['note']}"
+                                    )
+                                for label, text in extra.items():
+                                    st.markdown(f"**{label}:** {text}")
 
 # ── Add custom activity ────────────────────────────────────────────────────────
 st.divider()
