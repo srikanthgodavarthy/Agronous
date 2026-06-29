@@ -105,7 +105,7 @@ with session_scope() as session:
 
 
 # ── Render one activity card (pure native Streamlit) ──────────────────────────
-def render_card(row: dict) -> None:
+def render_card(row: dict, tab_idx: int = 0) -> None:
     meta      = CATEGORY_META.get(row["category"], CATEGORY_META["OTHER"])
     is_overdue = row["status"] == "PENDING" and row["activity_date"] < today
     hint       = _get_hint(row["name"], row["remarks"])
@@ -147,9 +147,9 @@ def render_card(row: dict) -> None:
 
         # ── Manage popover ───────────────────────────────────────────────────
         with st.popover("⚙ Manage"):
-            with st.form(f"manage_{row['id']}"):
-                new_date    = st.date_input("Date",    value=row["activity_date"], key=f"d_{row['id']}")
-                new_remarks = st.text_area("Remarks",  value=row["remarks"],       key=f"r_{row['id']}", height=70)
+            with st.form(f"manage_{tab_idx}_{row['id']}"):
+                new_date    = st.date_input("Date",    value=row["activity_date"], key=f"d_{tab_idx}_{row['id']}")
+                new_remarks = st.text_area("Remarks",  value=row["remarks"],       key=f"r_{tab_idx}_{row['id']}", height=70)
                 sc, cc, skc = st.columns(3)
                 save     = sc.form_submit_button("💾 Save")
                 complete = cc.form_submit_button("✅ Done")
@@ -173,14 +173,14 @@ def render_card(row: dict) -> None:
                         st.rerun()
 
             if row["status"] != "PENDING":
-                if st.button("↩ Reopen", key=f"reopen_{row['id']}"):
+                if st.button("↩ Reopen", key=f"reopen_{tab_idx}_{row['id']}"):
                     with session_scope() as session:
                         act = schedule_repo.get_activity(session, row["id"])
                         schedule_repo.reopen(session, act)
                     st.rerun()
 
             if row["is_custom"]:
-                if st.button("🗑 Delete", key=f"delete_{row['id']}"):
+                if st.button("🗑 Delete", key=f"delete_{tab_idx}_{row['id']}"):
                     with session_scope() as session:
                         act = schedule_repo.get_activity(session, row["id"])
                         schedule_repo.delete_activity(session, act)
@@ -188,7 +188,7 @@ def render_card(row: dict) -> None:
 
 
 # ── Render a filtered + week-grouped list ────────────────────────────────────
-def render_list(activities: list[dict], status_val: str) -> None:
+def render_list(activities: list[dict], status_val: str, tab_idx: int = 0) -> None:
     filtered = activities if status_val == "All" else [a for a in activities if a["status"] == status_val]
     if not filtered:
         st.info("No activities match this filter.")
@@ -205,7 +205,7 @@ def render_list(activities: list[dict], status_val: str) -> None:
             unsafe_allow_html=True,
         )
         for row in items:
-            render_card(row)
+            render_card(row, tab_idx=tab_idx)
 
 
 # ── Category tabs ─────────────────────────────────────────────────────────────
@@ -226,7 +226,7 @@ for i, tab in enumerate(tabs):
         sv = {"All": "All", "Pending": "PENDING", "Completed": "COMPLETED", "Skipped": "SKIPPED"}[sf]
 
         pool = all_activities if i == 0 else [a for a in all_activities if a["category"] == ALL_CATS[i - 1]]
-        render_list(pool, sv)
+        render_list(pool, sv, tab_idx=i)
 
 
 # ── Add custom activity ───────────────────────────────────────────────────────
