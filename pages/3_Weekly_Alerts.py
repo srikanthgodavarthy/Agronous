@@ -25,9 +25,9 @@ with session_scope() as session:
     alerts = refresh_alerts_for_season(session, season_obj)
     alerts_data = [(a.priority.value, a.message, a.created_at) for a in alerts]
 
-red = [a for a in alerts_data if a[0] == "Red"]
-yellow = [a for a in alerts_data if a[0] == "Yellow"]
-green = [a for a in alerts_data if a[0] == "Green"]
+red = [a for a in alerts_data if a[0] == "RED"]
+yellow = [a for a in alerts_data if a[0] == "YELLOW"]
+green = [a for a in alerts_data if a[0] == "GREEN"]
 
 c1, c2, c3 = st.columns(3)
 c1.metric("🔴 Overdue", len(red))
