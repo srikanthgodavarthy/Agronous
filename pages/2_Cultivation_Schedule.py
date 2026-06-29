@@ -28,7 +28,8 @@ st.caption(f"{ctx['farm_name']} • {ctx['crop_name']}" + (f" ({ctx['variety']})
 # ---------------------------------------------------------------------------
 f1, f2 = st.columns([1, 3])
 with f1:
-    status_filter = st.selectbox("Status", ["All", "Pending", "Completed", "Skipped"])
+    status_filter = st.selectbox("Status", ["All", "PENDING", "COMPLETED", "SKIPPED"],
+                                  format_func=lambda x: x.title() if x != "All" else x)
 with f2:
     category_filter = st.multiselect(
         "Categories",
@@ -67,8 +68,8 @@ if not activities_data:
 else:
     today = date.today()
     for row in activities_data:
-        status_icon = {"Pending": "⏳", "Completed": "✅", "Skipped": "⏭️"}[row["status"]]
-        is_overdue = row["status"] == "Pending" and row["activity_date"] < today
+        status_icon = {"PENDING": "⏳", "COMPLETED": "✅", "SKIPPED": "⏭️"}[row["status"]]
+        is_overdue = row["status"] == "PENDING" and row["activity_date"] < today
 
         with st.container(border=True):
             c1, c2, c3, c4 = st.columns([1.2, 2.3, 1, 1.5])
@@ -113,7 +114,7 @@ else:
                                     schedule_repo.mark_skipped(session, activity)
                         st.rerun()
 
-                if row["status"] != "Pending":
+                if row["status"] != "PENDING":
                     if st.button("↩️ Reopen", key=f"reopen_{row['id']}"):
                         with session_scope() as session:
                             activity = schedule_repo.get_activity(session, row["id"])
