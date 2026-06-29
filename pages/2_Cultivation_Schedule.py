@@ -189,22 +189,31 @@ for tab_idx, tab in enumerate(tabs):
                 meta        = CATEGORY_META.get(row["category"], CATEGORY_META["OTHER"])
                 date_str    = row["activity_date"].strftime("%d %b")
                 hint        = _get_hint(row["name"], row["remarks"])
-                product_html = ""
-                if hint and row["category"] in ("FERTILIZER", "SPRAY"):
-                    product_html = f"<div class='act-product'>{hint['combo']}<br><span class='dose'>{hint['dose']}</span></div>"
 
-                cards_html += f"""
-                <div class='act-card' style='{card_style}'>
-                    <div class='act-icon' style='background:{meta["bg"]}'>{meta["icon"]}</div>
-                    <div class='act-name'>{row["name"]}</div>
-                    <div class='act-meta'>{date_str}<br>DAS {row["das"]}<br>{meta["label"]}</div>
-                    {product_html}
-                    <div class='act-spacer'></div>
-                    <div class='act-btns'>
-                        <span class='act-btn btn-done' title='Mark done'>✓</span>
-                        <span class='act-btn btn-skip' title='Skip'>⏭</span>
-                    </div>
-                </div>"""
+                product_block = ""
+                if hint and row["category"] in ("FERTILIZER", "SPRAY"):
+                    product_block = f"<div class='act-product'>{hint['combo']}<br><span class='dose'>{hint['dose']}</span></div>"
+
+                # Joined with no newlines between parts -- a bare indented blank
+                # line inside an unsafe_allow_html block gets treated by the
+                # markdown parser as an indented code block, which silently
+                # breaks rendering for every card after it. Concatenating
+                # strings directly (vs. an f-string with embedded line breaks)
+                # avoids that trap entirely.
+                card_parts = [
+                    f"<div class='act-card' style='{card_style}'>",
+                    f"<div class='act-icon' style='background:{meta['bg']}'>{meta['icon']}</div>",
+                    f"<div class='act-name'>{row['name']}</div>",
+                    f"<div class='act-meta'>{date_str}<br>DAS {row['das']}<br>{meta['label']}</div>",
+                    product_block,
+                    "<div class='act-spacer'></div>",
+                    "<div class='act-btns'>",
+                    "<span class='act-btn btn-done' title='Mark done'>✓</span>",
+                    "<span class='act-btn btn-skip' title='Skip'>⏭</span>",
+                    "</div>",
+                    "</div>",
+                ]
+                cards_html += "".join(card_parts)
             cards_html += "</div>"
             st.markdown(cards_html, unsafe_allow_html=True)
 
