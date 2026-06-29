@@ -157,193 +157,519 @@ CROPS = [
     },
     {
         # ---------------------------------------------------------------
-        # BHINDI (OKRA) -- commercial hybrid cultivation calendar.
+        # BHINDI (OKRA) -- Vikarabad commercial cultivation tracker.
         #
-        # Modeled on how an experienced commercial grower actually runs a
-        # hybrid okra crop for a long, continuous picking window -- not a
-        # university practical schedule with one token "Harvest" row.
-        # Five things make this template different from the four above:
+        # Rebuilt directly from a real 2-acre Vikarabad grower's week-by-week
+        # field checklist (18 weeks, DAS 0-125, 71 tracked tasks) rather than
+        # general agronomic knowledge -- DAS ranges, named products, doses,
+        # and even specific cautions (e.g. "do not spray 10am-4pm during
+        # flowering") are taken directly from that checklist so the in-app
+        # schedule matches what the farmer is actually already doing.
         #
-        #   1. Harvest is NOT a single activity. First picking ~47 DAS,
-        #      then every 2 days through ~109 DAS (32 pickings total) via
-        #      one ActivityTemplate row with repeat_interval_days=2 -- the
-        #      schedule engine explodes this into 32 independently
-        #      completable ScheduleActivity rows automatically.
-        #   2. Continuous foliar nutrition every ~12 days through fruiting,
-        #      because continuous picking drains the plant fast.
-        #   3. A parallel "plant recovery" track, offset from the foliar
-        #      nutrition dates, focused specifically on rebuilding vigour
-        #      after repeated harvesting rather than routine feeding.
-        #   4. Fruit-quality-focused sprays (colour, size uniformity,
-        #      curvature, shelf life, marketability) -- distinct in intent
-        #      from the general nutrition/recovery tracks even though the
-        #      action (a foliar spray) looks similar.
-        #   5. Weekly pest/disease/stress monitoring (whitefly, jassids,
-        #      thrips, fruit borer, YVMV, powdery mildew, nutrient
-        #      deficiency, water stress) with an explicit prompt to
-        #      photograph the crop for AI analysis via Observations.
-        #
-        # Every remark below follows the same five-part structure so it
-        # reads well as-is AND gives services/ai_engine.py clean material
-        # to reason over later: Purpose. Benefit. Timing. Weather caution.
-        # Follow-up.
+        # Mapping notes:
+        #   - The source checklist uses two categories ("Pest Control",
+        #     "Disease") that don't exist in ActivityCategory. Both map to
+        #     SPRAY here (they're both foliar-applied chemical controls);
+        #     the specific pest/disease and product stay in the activity
+        #     name/remarks so nothing is lost and PRODUCT_HINTS keyword
+        #     matching still works per-product.
+        #   - "Foliar" rows (nutrition, not pest/disease) map to FERTILIZER,
+        #     consistent with how foliar feeds are categorized for the other
+        #     seeded crops.
+        #   - Harvest cadence is genuinely "every 2-3 days" in the source,
+        #     not a fixed interval -- modeled as repeat_interval_days=2
+        #     (the tighter, safer bound) so the schedule never lets pods
+        #     over-mature; remarks note the 2-3 day farmer judgement window.
+        #   - Crop runs through DAS 125 (vs. ~110-115 for the other four
+        #     crops here) because this checklist explicitly carries through
+        #     uprooting, field clearing and deep ploughing as scheduled
+        #     activities, not just the harvest window.
         # ---------------------------------------------------------------
         "name": "Bhindi (Okra)",
-        "description": "Commercial hybrid okra (Bhindi), direct-seeded, long continuous-picking cultivation.",
-        "default_duration_days": 115,
+        "description": "Commercial hybrid okra (Bhindi), direct-seeded, Vikarabad-style continuous-picking cultivation with full pest/disease rotation calendar.",
+        "default_duration_days": 125,
         "stages": [
-            ("Land Preparation", 1, -10, -1, "Deep ploughing, FYM incorporation, and bed/ridge formation before sowing."),
-            ("Germination & Establishment", 2, 0, 10, "Seed germination and seedling establishment."),
-            ("Vegetative Growth", 3, 11, 24, "Vegetative growth and branching; root and canopy development."),
-            ("Flowering Initiation", 4, 25, 44, "Flower bud formation begins; nutrient demand starts rising."),
-            ("Peak Flowering & Fruit Set", 5, 45, 54, "Continuous flowering and fruit set begins; first pickings approach."),
-            ("Continuous Harvest & Fruiting", 6, 55, 113, "Extended commercial picking window with overlapping flowering, fruiting and harvest."),
+            ("Sowing & Germination", 1, 0, 6, "Seed sowing, basal fertilizer, and pre/post-sowing irrigation."),
+            ("Germination & Emergence", 2, 7, 13, "Germination check, gap filling, early cutworm/damping-off watch."),
+            ("Seedling Establishment", 3, 14, 20, "Thinning, first weeding, early aphid/whitefly watch."),
+            ("Active Vegetative Growth", 4, 21, 27, "Rapid vegetative growth; first nitrogen top dressing and earthing up."),
+            ("Pre-Flowering / Rapid Growth", 5, 28, 34, "Second weeding, micronutrient foliar sprays, early shoot/fruit borer check."),
+            ("Flower Bud Initiation", 6, 35, 41, "First flower buds visible; monsoon drainage management begins."),
+            ("Full Flowering", 7, 42, 48, "Peak flowering; fruit-set foliar spray and FSB control critical."),
+            ("Pod Development", 8, 49, 55, "Pod development begins; powdery mildew watch starts."),
+            ("First Harvest", 9, 56, 62, "First tender pod harvest begins; harvest-pest spray interval discipline starts."),
+            ("Peak Production", 10, 63, 69, "Peak picking; red spider mite and Cercospora leaf spot watch."),
+            ("Sustained Production", 11, 70, 76, "Third top dressing to extend yield period; plant stamina foliar spray."),
+            ("Continued Production", 12, 77, 83, "Continued picking; YVMV roguing and canopy management."),
+            ("Mid-Late Production", 13, 84, 90, "Pod-quality potassium nitrate spray for size, colour and shelf life."),
+            ("Late Production", 14, 91, 97, "Yield begins declining; reduce inputs; start seed collection."),
+            ("Winding Down", 15, 98, 104, "Minimal irrigation; collect remaining pods; reduce all inputs."),
+            ("Final Harvest", 16, 105, 111, "Stop irrigation; harvest last marketable pods; allow seed pods to mature."),
+            ("Crop Removal", 17, 112, 118, "Final picking; uproot and incorporate plant residue."),
+            ("Crop End", 18, 119, 125, "Field clearing, deep ploughing, and season record-keeping."),
         ],
         "activities": [
-            # --- Land preparation, sowing, establishment -----------------
-            (-10, ActivityCategory.LAND_PREPARATION, "Deep Ploughing & FYM Incorporation", None, 1,
-             "Purpose: Open up the soil and work in well-rotted FYM/compost. "
-             "Benefit: Improves root penetration, drainage and nutrient-holding capacity for the whole crop. "
-             "Timing: 10 days before sowing, while soil is workable. "
-             "Weather: Avoid working wet, waterlogged soil. "
-             "Follow-up: Level the field and form ridges/beds within 2-3 days."),
-            (-5, ActivityCategory.LAND_PREPARATION, "Ridge/Bed Formation & Basal Fertilizer", None, 1,
-             "Purpose: Form ridges or raised beds and place the basal NPK dose. "
-             "Benefit: Ensures good drainage, easy picking access later, and gives seedlings an early nutrient base. "
-             "Timing: 4-5 days before sowing. "
-             "Weather: Complete before any heavy rain to prevent ridge erosion. "
-             "Follow-up: Confirm spacing matches the hybrid's recommended plant population."),
-            (0, ActivityCategory.SOWING, "Seed Sowing - Hybrid Okra", None, 1,
-             "Purpose: Direct-sow treated hybrid seed at recommended spacing. "
-             "Benefit: Correct spacing now directly drives fruit size uniformity and ease of picking for the entire season. "
-             "Timing: Day of sowing (DAS 0). "
-             "Weather: Sow into adequate soil moisture; avoid sowing just before a heavy downpour that can cause crusting. "
-             "Follow-up: Check germination by DAS 6-7 and plan gap-filling."),
-            (5, ActivityCategory.IRRIGATION, "Irrigation - Germination Support", None, 1,
-             "Purpose: Keep the seed zone moist for uniform germination. "
-             "Benefit: Even germination means an even, easier-to-manage stand and fewer gaps to fill later. "
-             "Timing: Around DAS 5, light and frequent rather than heavy. "
-             "Weather: Skip or reduce if recent rainfall has kept soil moist. "
-             "Follow-up: Inspect germination percentage and mark patches needing gap-filling."),
-            (10, ActivityCategory.OTHER, "Thinning & Gap Filling", None, 1,
-             "Purpose: Remove weak/excess seedlings and fill visible gaps. "
-             "Benefit: Maintains the target plant population so light, nutrients and water are not wasted on overcrowded clumps. "
-             "Timing: DAS 10, once true leaves are visible. "
-             "Weather: Do this on a cooler day to reduce transplant shock for gap-filled seedlings. "
-             "Follow-up: Water lightly after thinning to settle remaining roots."),
-            (15, ActivityCategory.WEEDING, "First Weeding / Inter-culture", None, 1,
-             "Purpose: Remove early weed competition and lightly loosen the topsoil. "
-             "Benefit: Reduces competition for nutrients and water during the critical early vegetative push. "
-             "Timing: DAS 15, before weeds set seed. "
-             "Weather: Avoid weeding in waterlogged soil to prevent root damage. "
-             "Follow-up: Re-check for regrowth weekly until canopy closes."),
-            (18, ActivityCategory.IRRIGATION, "Irrigation Cycle - Vegetative Stage", 6, 4,
-             "Purpose: Maintain steady soil moisture through active vegetative growth. "
-             "Benefit: Consistent moisture (not flood-dry cycles) builds the strong root and branch framework that supports a long harvest window later. "
-             "Timing: Every ~6 days through the vegetative stage; adjust if rain falls. "
-             "Weather: Reduce frequency during rainy spells to avoid waterlogging and root rot. "
-             "Follow-up: Watch for wilting between cycles as a sign the interval is too long."),
-            (20, ActivityCategory.FERTILIZER, "1st Top Dressing - Nitrogen", None, 1,
-             "Purpose: Apply the first nitrogen split to fuel vegetative growth. "
-             "Benefit: Builds the canopy and branching framework needed to support heavy, continuous fruiting later. "
-             "Timing: DAS 20, just before the vegetative growth surge. "
-             "Weather: Apply to moist soil, ideally just before or after light irrigation, not in standing water. "
-             "Follow-up: Monitor leaf colour over the next week to gauge response."),
+            # ===== Week 1 (DAS 0-6): Sowing & Germination ================
+            (0, ActivityCategory.SOWING, "Sowing", None, 1,
+             "Purpose: Sow seed at 2-3 cm depth, 60x30 cm spacing. "
+             "Benefit: Correct depth and spacing gives uniform germination and easy picking access for the whole season. "
+             "Timing: DAS 0, week 1. Seed rate 3-4 kg/acre (6-8 kg for 2 acres total). "
+             "Weather: Sow into adequate soil moisture. "
+             "Follow-up: Treat seed before sowing; irrigate if soil is dry."),
+            (0, ActivityCategory.OTHER, "Seed Treatment", None, 1,
+             "Purpose: Treat seeds with Thiram (fungicide powder) 2g/kg OR Trichoderma (biofungicide) 4g/kg before sowing. "
+             "Benefit: Protects seed and seedling from soil-borne fungal rot and damping-off during germination. "
+             "Timing: Immediately before sowing, DAS 0. "
+             "Weather: Treated seed should be sown the same day, not stored wet. "
+             "Follow-up: Monitor germination percentage from DAS 7."),
+            (0, ActivityCategory.FERTILIZER, "Basal Dose - DAP + Potash", None, 1,
+             "Purpose: Apply Di-Ammonium Phosphate (DAP 18:46:0) at 40 kg/acre + Muriate of Potash (MOP) at 35 kg/acre (80 kg DAP + 70 kg MOP for 2 acres). "
+             "Benefit: Gives seedlings an early phosphorus and potassium base for root and early growth. "
+             "Timing: Mix into soil before sowing, DAS 0. "
+             "Weather: Apply to workable, not waterlogged, soil. "
+             "Follow-up: Confirm even mixing across the field before sowing."),
+            (0, ActivityCategory.IRRIGATION, "Pre-Sowing Irrigation", None, 1,
+             "Purpose: One irrigation if soil is dry before sowing. "
+             "Benefit: Ensures adequate moisture for seed germination. "
+             "Timing: DAS 0, just before sowing. "
+             "Weather: Skip if soil is already moist from recent rain. "
+             "Follow-up: Sow once soil reaches workable moisture."),
+            (3, ActivityCategory.IRRIGATION, "Day 3 Irrigation", None, 1,
+             "Purpose: Light irrigation on Day 3 if no rain. "
+             "Benefit: Keeps the seed zone moist through the critical germination window without waterlogging. "
+             "Timing: DAS 3. "
+             "Weather: Avoid waterlogging; skip if rain has fallen. "
+             "Follow-up: Check germination from DAS 7."),
 
-            # --- Weekly crop-health monitoring (pest/disease/stress) -----
-            (21, ActivityCategory.SPRAY, "Weekly Crop Health Monitoring", 7, 13,
-             "Purpose: Walk the field and inspect leaves, undersides, flowers and fruit for whitefly, jassids, thrips, fruit borer, "
-             "Yellow Vein Mosaic Virus (YVMV) symptoms, powdery mildew, nutrient deficiency patterns and water stress. "
-             "Benefit: Catching pest, disease or nutrient problems in the first week of onset is far cheaper and more effective than treating an established outbreak. "
-             "Timing: Every 7 days, ideally in the cooler morning hours when pests are most visible on the underside of leaves. "
-             "Weather: Note recent rain/humidity, since whitefly and YVMV pressure and powdery mildew risk both rise in specific weather windows. "
-             "Follow-up: Capture images of affected and healthy leaves, flowers and fruit and log them as Observations for AI analysis; treat only if a threshold pest/disease is confirmed."),
+            # ===== Week 2 (DAS 7-13): Germination & Emergence =============
+            (7, ActivityCategory.IRRIGATION, "Light Irrigation", 4, 2,
+             "Purpose: Light irrigation every 4-5 days through germination and emergence. "
+             "Benefit: Maintains even soil moisture for germination without disturbing fragile seedlings. "
+             "Timing: Every 4-5 days, DAS 7-13. "
+             "Weather: Avoid disturbing seedlings; light watering only. "
+             "Follow-up: Check germination percentage at each irrigation."),
+            (7, ActivityCategory.OTHER, "Check Germination", None, 1,
+             "Purpose: Check germination percentage; target above 70%. "
+             "Benefit: Confirms stand quality early enough to gap-fill before it's too late to catch up. "
+             "Timing: DAS 7-13, week 2. "
+             "Weather: No specific precaution. "
+             "Follow-up: Do gap filling immediately where seedlings are missing."),
+            (10, ActivityCategory.SPRAY, "Cutworm / Damping-Off Watch", None, 1,
+             "Purpose: Watch for cutworm damage or damping-off at the seedling base. "
+             "Benefit: Early intervention prevents seedling loss that would otherwise need re-sowing. "
+             "Timing: DAS 7-13, week 2. "
+             "Weather: Pests are more active in humid, overcast conditions. "
+             "Follow-up: If cutworm found, apply Chlorpyrifos 2.5 ml/L near the base."),
 
-            # --- Flowering initiation, fertigation, foliar nutrition -----
-            (25, ActivityCategory.FERTILIZER, "2nd Top Dressing - Pre-Flowering", None, 1,
-             "Purpose: Apply nitrogen + potash split as flower bud formation begins. "
-             "Benefit: Supports strong, synchronized flowering, which is what eventually drives a high first-flush harvest. "
-             "Timing: DAS 25, at flower initiation. "
-             "Weather: Apply with adequate soil moisture; avoid during heavy rain to prevent runoff loss. "
-             "Follow-up: Track flower bud emergence over the following 5-7 days."),
-            (28, ActivityCategory.FERTILIZER, "Foliar Nutrition - Balanced NPK + Calcium", 12, 7,
-             "Purpose: Apply a balanced NPK foliar spray with added calcium through flowering and fruiting. "
-             "Benefit: Improves plant vigour, supports steady flowering and strengthens fruit cell walls for firmer, better-quality pods. "
-             "Timing: Every 10-15 days from pre-flowering through late fruiting (this cycle: every 12 days). "
-             "Weather: Spray during early morning or late evening; avoid spraying during high temperatures, bright sun or ahead of rainfall, which both reduce uptake and waste the spray. "
-             "Follow-up: Watch new flush of leaves and flowers for response; adjust to a micronutrient mixture if specific deficiency symptoms (yellowing, interveinal chlorosis) are observed instead of generic NPK."),
-            (30, ActivityCategory.WEEDING, "Second Weeding / Earthing Up", None, 1,
-             "Purpose: Final round of weeding and light earthing up before canopy closes. "
-             "Benefit: Keeps root competition low and improves plant anchorage against wind once the crop becomes top-heavy with fruit. "
-             "Timing: DAS 30, just before canopy closure makes inter-row access difficult. "
-             "Weather: Avoid in wet soil to prevent compaction and root injury. "
-             "Follow-up: After this point, rely on mulch/canopy shading rather than further inter-culture."),
-            (32, ActivityCategory.SPRAY, "Preventive Spray - Early Sucking Pest & Disease Check", None, 1,
-             "Purpose: Preventive spray targeting early aphid/jassid/whitefly buildup and early fungal leaf spots. "
-             "Benefit: Suppresses the vectors that spread Yellow Vein Mosaic Virus before flowering, when an outbreak would be most damaging. "
-             "Timing: DAS 32, just ahead of peak flowering. "
+            # ===== Week 3 (DAS 14-20): Seedling Establishment =============
+            (14, ActivityCategory.IRRIGATION, "Regular Irrigation", 5, 1,
+             "Purpose: Regular irrigation every 5-6 days during seedling establishment. "
+             "Benefit: Builds a steady root system for the vegetative push ahead. "
+             "Timing: DAS 14-20, week 3. "
+             "Weather: Adjust if rainfall has already met crop demand. "
+             "Follow-up: Combine with thinning and first weeding this week."),
+            (16, ActivityCategory.OTHER, "Thinning", None, 1,
+             "Purpose: Retain 1 healthy plant per hill. "
+             "Benefit: Removes competition between seedlings at the same spot so the retained plant develops strongly. "
+             "Timing: DAS 14-20, week 3. "
+             "Weather: Do on a cooler day to reduce shock. "
+             "Follow-up: Water lightly after thinning."),
+            (16, ActivityCategory.WEEDING, "First Weeding", None, 1,
+             "Purpose: Remove weeds by hand or shallow hoeing. "
+             "Benefit: Reduces early competition for nutrients and water during establishment. "
+             "Timing: DAS 14-20, week 3. "
+             "Weather: Avoid weeding waterlogged soil. "
+             "Follow-up: Re-check for regrowth at the second weeding (week 5)."),
+            (17, ActivityCategory.SPRAY, "Aphid / Whitefly Early Watch", None, 1,
+             "Purpose: Watch for early aphid/whitefly infestation. "
+             "Benefit: Treating sucking pests early prevents both direct damage and virus transmission later. "
+             "Timing: DAS 14-20, week 3. "
+             "Weather: Sucking pest pressure rises in warm, dry weather. "
+             "Follow-up: If infestation starts, spray Neem oil 5 ml/L + Teepol 1 ml/L."),
+
+            # ===== Week 4 (DAS 21-27): Active Vegetative Growth ===========
+            (21, ActivityCategory.IRRIGATION, "Regular Irrigation - Hot & Dry Period", 5, 1,
+             "Purpose: Regular irrigation every 5-6 days; this is a hot and dry critical period. "
+             "Benefit: Prevents moisture stress during the active vegetative growth surge. "
+             "Timing: DAS 21-27, week 4. "
+             "Weather: Increase frequency if conditions are unusually hot and dry. "
+             "Follow-up: Pair with the first nitrogen top dressing this week."),
+            (21, ActivityCategory.FERTILIZER, "Top Dressing #1 - Ammonium Sulphate", None, 1,
+             "Purpose: Apply Ammonium Sulphate (AS 20.6% N) at 75 kg/acre (150 kg for 2 acres). "
+             "Benefit: Fuels the active vegetative growth and branching framework that will support fruiting later. "
+             "Timing: DAS 21-27, week 4. "
+             "Weather: Broadcast between rows and irrigate immediately. "
+             "Follow-up: Available at most agri shops as a urea alternative; monitor leaf colour over the next week."),
+            (23, ActivityCategory.OTHER, "Earthing Up", None, 1,
+             "Purpose: Light hilling around the plant base. "
+             "Benefit: Improves anchorage and root support as plants grow taller. "
+             "Timing: DAS 21-27, week 4. "
+             "Weather: Avoid in waterlogged soil. "
+             "Follow-up: Re-check before canopy closes."),
+            (24, ActivityCategory.SPRAY, "Whitefly / Aphid Control - Imidacloprid", None, 1,
+             "Purpose: Spray Imidacloprid 0.5 ml/L if whitefly/aphid population is high. "
+             "Benefit: Controls the whitefly vector that spreads Yellow Vein Mosaic Virus (YVMV) before it can establish. "
+             "Timing: DAS 21-27, week 4. "
+             "Weather: Avoid spraying in windy conditions. "
+             "Follow-up: Re-check population at next monitoring; rotate products if repeated."),
+
+            # ===== Week 5 (DAS 28-34): Pre-Flowering / Rapid Growth =======
+            (28, ActivityCategory.IRRIGATION, "Regular Irrigation", 5, 1,
+             "Purpose: Regular irrigation every 5 days; monsoon may start around this time. "
+             "Benefit: Maintains moisture through rapid pre-flowering growth while watching for monsoon onset. "
+             "Timing: DAS 28-34, week 5. "
+             "Weather: Be ready to reduce frequency once monsoon rains begin. "
+             "Follow-up: Check drainage readiness ahead of week 6."),
+            (29, ActivityCategory.WEEDING, "Second Weeding", None, 1,
+             "Purpose: Weed thoroughly and apply mulch between rows if available. "
+             "Benefit: Last practical weeding window before canopy closes; mulch helps conserve moisture into the monsoon. "
+             "Timing: DAS 28-34, week 5. "
+             "Weather: Avoid in wet soil to prevent compaction. "
+             "Follow-up: After this point, rely on canopy shading and mulch."),
+            (30, ActivityCategory.SPRAY, "Shoot & Fruit Borer Early Check", None, 1,
+             "Purpose: Check for shoot and fruit borer (FSB) dead hearts. "
+             "Benefit: Catching FSB at the dead-heart stage prevents it from establishing through flowering and fruiting. "
+             "Timing: DAS 28-34, week 5. "
+             "Weather: No specific precaution. "
+             "Follow-up: If dead heart found, spray Chlorantraniliprole 0.3 ml/L."),
+            (31, ActivityCategory.FERTILIZER, "Zinc + Boron Foliar Spray", None, 1,
+             "Purpose: Apply Zinc Sulphate (ZnSO4) 0.5 g/L + Borax (Boron) 1 g/L as a foliar spray. "
+             "Benefit: Corrects micronutrient deficiency common after a maize crop in Vikarabad red soils. "
+             "Timing: DAS 28-34, week 5. "
+             "Weather: Spray during cooler hours, not in direct midday sun. "
+             "Follow-up: Watch leaf colour for deficiency correction over the following week."),
+            (32, ActivityCategory.FERTILIZER, "NPK Foliar Spray", None, 1,
+             "Purpose: Apply Water Soluble NPK 19:19:19 (Multi-K / Kristalon) at 5 g/L as a foliar spray. "
+             "Benefit: Boosts vegetative vigour ahead of flowering. "
+             "Timing: DAS 28-34, week 5. "
+             "Weather: Spray in early morning or evening. "
+             "Follow-up: Combine with the Zinc + Boron spray this week if convenient."),
+
+            # ===== Week 6 (DAS 35-41): Flower Bud Initiation ==============
+            (35, ActivityCategory.IRRIGATION, "Drainage Management", None, 1,
+             "Purpose: Ensure drainage channels are open ahead of expected monsoon rain. "
+             "Benefit: Prevents waterlogging and root/fruit rot once monsoon rains arrive. "
+             "Timing: DAS 35-41, week 6. "
+             "Weather: Monsoon expected this week -- check channels before rain, not after. "
+             "Follow-up: Re-check after the first heavy rain event."),
+            (36, ActivityCategory.FERTILIZER, "Top Dressing #2 - CAN or Complex", None, 1,
+             "Purpose: Apply Calcium Ammonium Nitrate (CAN 25% N) at 40 kg/acre OR Complex Fertilizer 20:20:0 at 40 kg/acre (80 kg total for 2 acres). "
+             "Benefit: Supports the nutrient demand spike as flower buds form. "
+             "Timing: DAS 35-41, week 6. "
+             "Weather: Broadcast and irrigate; avoid applying just before heavy rain to prevent runoff loss. "
+             "Follow-up: Track flower bud emergence over the following week."),
+            (37, ActivityCategory.SPRAY, "Mite / Whitefly Control - Neem", None, 1,
+             "Purpose: Spray Neem oil 5 ml/L in the evening only. "
+             "Benefit: Suppresses mite and whitefly buildup ahead of full flowering with a low-residue option. "
+             "Timing: DAS 35-41, week 6. "
+             "Weather: Evening application only -- avoid daytime heat and direct sun. "
+             "Follow-up: Re-assess at next monitoring visit."),
+            (38, ActivityCategory.OTHER, "Flower Bud Check", None, 1,
+             "Purpose: Check for first visible flower buds. "
+             "Benefit: Confirms the crop is entering its most spray-sensitive window. "
+             "Timing: DAS 35-41, week 6. "
+             "Weather: Once buds are visible, do NOT spray between 10 AM and 4 PM (flowering hours) -- this protects pollinators and active flowers. "
+             "Follow-up: Schedule any remaining sprays for early morning or evening only from this point on."),
+
+            # ===== Week 7 (DAS 42-48): Full Flowering ======================
+            (42, ActivityCategory.IRRIGATION, "Irrigation If No Rain", None, 1,
+             "Purpose: Irrigate if there has been no rain for 5+ days. "
+             "Benefit: Water stress during flowering directly reduces fruit set -- this is a critical irrigation window. "
+             "Timing: DAS 42-48, week 7. "
+             "Weather: Skip if monsoon rain has already met demand. "
+             "Follow-up: Monitor fruit set over the following week."),
+            (43, ActivityCategory.SPRAY, "FSB Control - Spinosad", None, 1,
+             "Purpose: Spray Spinosad 45 SC at 0.3 ml/L, evening only. "
+             "Benefit: Controls fruit and shoot borer (FSB) during the highest-risk flowering window. "
+             "Timing: DAS 42-48, week 7. "
+             "Weather: Evening application only; do not spray 10 AM-4 PM during flowering hours. "
+             "Follow-up: Rotate to Emamectin Benzoate next cycle (week 8) to avoid resistance build-up."),
+            (44, ActivityCategory.FERTILIZER, "Fruit Set Spray - Boron + Calcium", None, 1,
+             "Purpose: Apply Borax (Boron) 1 g/L + Calcium Nitrate (CaNO3) 2 g/L as a foliar spray on leaves and buds. "
+             "Benefit: Improves fruit set and reduces flower drop during peak flowering. "
+             "Timing: DAS 42-48, week 7. "
+             "Weather: Spray in early morning or evening, not during 10 AM-4 PM flowering hours. "
+             "Follow-up: Watch fruit-set percentage on tagged branches over the following week."),
+            (45, ActivityCategory.OTHER, "Remove Dead Hearts", None, 1,
+             "Purpose: Remove FSB-affected shoot tips (dead hearts) and destroy them off-field. "
+             "Benefit: Removing infested tips reduces the pest's breeding population before it can spread to fruit. "
+             "Timing: DAS 42-48, week 7. "
+             "Weather: No specific precaution. "
+             "Follow-up: Continue checking weekly through pod development."),
+
+            # ===== Week 8 (DAS 49-55): Pod Development =====================
+            (49, ActivityCategory.IRRIGATION, "Consistent Irrigation", None, 1,
+             "Purpose: Maintain consistent irrigation; monitor daily. "
+             "Benefit: Irregular watering at this stage causes poor pod development -- consistency matters more than volume. "
+             "Timing: DAS 49-55, week 8. "
+             "Weather: Adjust daily based on rainfall, not a fixed calendar. "
+             "Follow-up: First harvest approaches next week -- inspect pod size daily."),
+            (50, ActivityCategory.SPRAY, "FSB Control (Rotation) - Emamectin", None, 1,
+             "Purpose: Spray Emamectin Benzoate 0.4 ml/L, rotated from Spinosad. "
+             "Benefit: Rotating chemical classes prevents resistance build-up in the FSB population. "
+             "Timing: DAS 49-55, week 8. "
+             "Weather: Evening application preferred. "
+             "Follow-up: Maintain a 5-7 day spray-to-harvest interval once picking begins next week."),
+            (51, ActivityCategory.SPRAY, "Powdery Mildew Watch", None, 1,
+             "Purpose: Watch for white powdery growth on leaves (powdery mildew). "
+             "Benefit: Early treatment prevents the disease from spreading across the canopy during humid pod-development weather. "
+             "Timing: DAS 49-55, week 8. "
+             "Weather: Risk rises in humid, overcast conditions. "
+             "Follow-up: If white powder appears, spray Wettable Sulphur 3 g/L."),
+            (52, ActivityCategory.OTHER, "Stake Tall Plants", None, 1,
+             "Purpose: Stake tall plants if needed; remove yellowing lower leaves. "
+             "Benefit: Staking prevents lodging under fruit load; removing yellowing leaves improves airflow and reduces disease pressure. "
+             "Timing: DAS 49-55, week 8. "
+             "Weather: No specific precaution. "
+             "Follow-up: First harvest begins next week -- ensure plants are accessible for picking."),
+
+            # ===== Week 9 (DAS 56-62): First Harvest =========================
+            (56, ActivityCategory.IRRIGATION, "Regular Irrigation", 5, 1,
+             "Purpose: Regular irrigation every 5-6 days if no rain. "
+             "Benefit: Sustains pod development now that continuous harvesting has begun. "
+             "Timing: DAS 56-62, week 9. "
+             "Weather: Adjust for rainfall. "
+             "Follow-up: Check soil moisture before each cycle."),
+            (58, ActivityCategory.HARVEST, "First Harvest - Tender Pod Picking", 2, 1,
+             "Purpose: FIRST HARVEST -- harvest tender pods 7-9 cm long every 2-3 days using a clean knife or scissors. "
+             "Benefit: Picking at the correct tender stage and on a strict interval is the single biggest driver of grade and price at market. "
+             "Timing: DAS 56-62, week 9, then continuing every 2-3 days for the rest of the season. "
+             "Weather: Avoid picking in wet conditions; wet handling encourages post-harvest rot. "
+             "Follow-up: Log the harvested quantity as Revenue against today's sale."),
+            (59, ActivityCategory.SPRAY, "Continue FSB Monitoring", None, 1,
+             "Purpose: Maintain the fruit/shoot borer spray rotation now that harvest has begun. "
+             "Benefit: Keeping a 5-7 day spray-to-harvest interval protects both yield and food safety. "
+             "Timing: DAS 56-62, week 9. "
+             "Weather: Spray in the evening, away from picking hours. "
+             "Follow-up: Track the interval since the last spray before every harvest."),
+            (60, ActivityCategory.FERTILIZER, "Fruiting Boost - MKP Spray", None, 1,
+             "Purpose: Apply Mono Potassium Phosphate (MKP 0:52:34) at 3 g/L as a foliar spray. "
+             "Benefit: Boosts pod setting and early yield right as the harvest window opens. "
+             "Timing: DAS 56-62, week 9. "
+             "Weather: Spray in early morning or evening. "
+             "Follow-up: Continue regular potassium-focused feeding through peak production."),
+
+            # ===== Week 10 (DAS 63-69): Peak Production =======================
+            (63, ActivityCategory.IRRIGATION, "Supplement If Dry", None, 1,
+             "Purpose: Rely on rain-fed moisture and irrigate only if there is a dry spell. "
+             "Benefit: Avoids over-watering during the monsoon while still protecting against dry spells. "
+             "Timing: DAS 63-69, week 10. "
+             "Weather: Check soil moisture before deciding to irrigate. "
+             "Follow-up: Continue every-2-3-day harvest regardless of irrigation timing."),
+            (64, ActivityCategory.HARVEST, "Harvest Every 2-3 Days", 2, 3,
+             "Purpose: Continue picking every 2-3 days; do NOT let pods over-mature. "
+             "Benefit: Over-mature pods become fibrous and unmarketable -- missing a cycle measurably drops quality and price. "
+             "Timing: Every 2-3 days through peak production, DAS 63-69 onward. "
+             "Weather: Pick as soon as the field is walkable after rain rather than skipping a cycle. "
+             "Follow-up: Log each picking's quantity and sale as Revenue the same day."),
+            (65, ActivityCategory.SPRAY, "Red Spider Mite Control", None, 1,
+             "Purpose: Spray Abamectin 0.5 ml/L OR Dicofol 2 ml/L for red spider mite. "
+             "Benefit: Controls mite buildup that thrives in the hot, dry spells between monsoon showers. "
+             "Timing: DAS 63-69, week 10. "
+             "Weather: Mite pressure rises in hot, dry conditions. "
+             "Follow-up: Re-check leaf undersides at next monitoring."),
+            (66, ActivityCategory.SPRAY, "Cercospora Leaf Spot Control", None, 1,
+             "Purpose: Spray Mancozeb 2.5 g/L for Cercospora leaf spot. "
+             "Benefit: Prevents leaf spot disease from reducing photosynthetic area during peak production. "
+             "Timing: DAS 63-69, week 10. "
+             "Weather: Risk rises in humid, wet-leaf conditions typical of monsoon season. "
+             "Follow-up: Apply at first sign rather than waiting for spread."),
+            (67, ActivityCategory.OTHER, "Remove Pest-Damaged Pods", None, 1,
+             "Purpose: Destroy pest-damaged pods to reduce FSB load in the field. "
+             "Benefit: Removing infested pods breaks the pest's breeding cycle and protects the next flush. "
+             "Timing: DAS 63-69, week 10. "
+             "Weather: No specific precaution. "
+             "Follow-up: Repeat at each harvest round through peak production."),
+
+            # ===== Week 11 (DAS 70-76): Sustained Production ===================
+            (70, ActivityCategory.IRRIGATION, "Regular Irrigation", None, 1,
+             "Purpose: Regular irrigation -- do not miss. "
+             "Benefit: Sustained production depends on uninterrupted moisture; a missed cycle now directly costs yield. "
+             "Timing: DAS 70-76, week 11. "
+             "Weather: Adjust timing around rainfall but do not skip entirely. "
+             "Follow-up: Pair with the third top dressing this week."),
+            (71, ActivityCategory.HARVEST, "Harvest Every 2-3 Days", 2, 3,
+             "Purpose: Continue regular harvest every 2-3 days. "
+             "Benefit: Sustained picking discipline through week 11 keeps pods marketable and maximizes the production window. "
+             "Timing: DAS 70-76, week 11. "
+             "Weather: Pick in the morning where possible. "
+             "Follow-up: Log Revenue for each picking."),
+            (72, ActivityCategory.FERTILIZER, "Top Dressing #3 - Ammonium Sulphate + Potash", None, 1,
+             "Purpose: Apply Ammonium Sulphate (AS) at 30 kg/acre + Muriate of Potash (MOP) at 20 kg/acre (60 kg AS + 40 kg MOP for 2 acres). "
+             "Benefit: Extends the yield period by replenishing nutrients depleted by several weeks of continuous picking. "
+             "Timing: DAS 70-76, week 11. "
+             "Weather: Broadcast and irrigate; avoid applying just before heavy rain. "
+             "Follow-up: Watch plant vigour over the following 1-2 weeks for response."),
+            (73, ActivityCategory.SPRAY, "Broad Spectrum Control", None, 1,
+             "Purpose: Spray Profenofos 2 ml/L if multiple pests are observed together. "
+             "Benefit: A broad-spectrum option for mixed infestations where rotating single-target products isn't keeping pace. "
+             "Timing: DAS 70-76, week 11. "
              "Weather: Avoid spraying in windy conditions or ahead of rain. "
-             "Follow-up: Re-assess at the next weekly monitoring visit; escalate only if population crosses threshold."),
+             "Follow-up: Return to targeted rotation once the mixed outbreak is under control."),
+            (74, ActivityCategory.FERTILIZER, "Plant Stamina - Seaweed Spray", None, 1,
+             "Purpose: Apply Seaweed Extract (Seasol / Kelpak / any brand) at 3 ml/L as a foliar spray. "
+             "Benefit: Improves plant stamina and stress tolerance during the demanding peak-production period. "
+             "Timing: DAS 70-76, week 11. "
+             "Weather: Spray in early morning or evening. "
+             "Follow-up: Repeat periodically through continued production if plants show fatigue."),
 
-            # --- Plant recovery / strength track (offset from foliar) ----
-            (34, ActivityCategory.FERTILIZER, "Plant Recovery & Strength Management", 12, 7,
-             "Purpose: Apply micronutrients, calcium and potassium-rich foliar feed aimed specifically at plant recovery rather than routine feeding. "
-             "Benefit: Continuous harvesting steadily removes nutrients from the plant; this recovery dose maintains vigour, supports new flower flushes and sustains fruit quality through a long picking season. "
-             "Timing: Every 10-15 days from late vegetative stage through the end of harvest (this cycle: every 12 days), timed to follow periods of heavy picking. "
-             "Weather: Spray in early morning or late evening; skip or delay if rain is expected within a few hours. "
-             "Follow-up: Do a quick plant health assessment after each application -- leaf colour, new flowering, fruit set -- and shorten the interval if plants show fatigue (pale leaves, reduced flowering, thin fruit)."),
+            # ===== Week 12 (DAS 77-83): Continued Production =====================
+            (77, ActivityCategory.IRRIGATION, "Regular Irrigation", 5, 1,
+             "Purpose: Regular irrigation every 5-6 days. "
+             "Benefit: Maintains consistent moisture through continued production. "
+             "Timing: DAS 77-83, week 12. "
+             "Weather: Adjust for rainfall. "
+             "Follow-up: Combine with canopy management this week."),
+            (78, ActivityCategory.HARVEST, "Harvest Every 2-3 Days", 2, 3,
+             "Purpose: Continue regular harvest every 2-3 days. "
+             "Benefit: Maintains market grade through continued production. "
+             "Timing: DAS 77-83, week 12. "
+             "Weather: Pick in the morning. "
+             "Follow-up: Log Revenue for each picking."),
+            (79, ActivityCategory.SPRAY, "FSB Rotation Continues", None, 1,
+             "Purpose: Rotate chemicals to avoid resistance build-up in the fruit/shoot borer population. "
+             "Benefit: Continued rotation discipline protects the effectiveness of all products used earlier in the season. "
+             "Timing: DAS 77-83, week 12. "
+             "Weather: Evening application preferred. "
+             "Follow-up: Track which product was used last to ensure proper rotation."),
+            (80, ActivityCategory.SPRAY, "YVMV Check", None, 1,
+             "Purpose: Check for Yellow Vein Mosaic Virus (YVMV) symptoms. "
+             "Benefit: Immediately roguing out infected plants prevents the whitefly-borne virus from spreading through the field. "
+             "Timing: DAS 77-83, week 12. "
+             "Weather: Whitefly vector pressure can rise in specific humidity windows. "
+             "Follow-up: Immediately rogue out and destroy any plants showing yellow vein mosaic symptoms."),
+            (81, ActivityCategory.OTHER, "Canopy Management", None, 1,
+             "Purpose: Remove old or unproductive lower branches. "
+             "Benefit: Improves airflow through the canopy, reducing humidity-driven disease pressure. "
+             "Timing: DAS 77-83, week 12. "
+             "Weather: Do on a dry day. "
+             "Follow-up: Repeat periodically as the canopy continues to grow."),
 
-            # --- Fertigation / irrigation through reproductive phase -----
-            (38, ActivityCategory.FERTILIZER, "3rd Fertigation - Flowering Booster", None, 1,
-             "Purpose: Phosphorus + potassium-heavy fertigation to support flowering and early fruit set. "
-             "Benefit: Reduces flower drop and supports more fruit set per flush, directly raising total marketable yield. "
-             "Timing: DAS 38, during peak flowering. "
-             "Weather: Fertigate when soil is at field capacity, not during waterlogging. "
-             "Follow-up: Check fruit-set percentage on tagged branches over the following week."),
-            (40, ActivityCategory.IRRIGATION, "Irrigation Cycle - Flowering to Fruiting", 5, 14,
-             "Purpose: Maintain steady soil moisture through flowering and the entire harvest window. "
-             "Benefit: Even moisture prevents flower drop and fruit drop and keeps pods tender rather than fibrous -- critical for marketable quality. "
-             "Timing: Every ~5 days from flowering through the end of harvest; shorten the interval in hot, dry weather. "
-             "Weather: Suspend or skip a cycle if rainfall has already met crop water demand, to avoid waterlogging and root/fruit rot. "
-             "Follow-up: Check soil moisture at root depth before each cycle rather than irrigating on a fixed calendar alone."),
+            # ===== Week 13 (DAS 84-90): Mid-Late Production =======================
+            (84, ActivityCategory.IRRIGATION, "As Needed", None, 1,
+             "Purpose: Irrigate as needed based on soil moisture and rainfall. "
+             "Benefit: Avoids both moisture stress and waterlogging during mid-late production. "
+             "Timing: DAS 84-90, week 13. "
+             "Weather: Check soil moisture before each decision. "
+             "Follow-up: Continue harvest discipline regardless of irrigation timing."),
+            (85, ActivityCategory.HARVEST, "Harvest Every 2-3 Days", 2, 3,
+             "Purpose: Continue regular harvest every 2-3 days. "
+             "Benefit: Maintains yield and grade through mid-late production. "
+             "Timing: DAS 84-90, week 13. "
+             "Weather: Pick in the morning. "
+             "Follow-up: Log Revenue for each picking."),
+            (86, ActivityCategory.SPRAY, "FSB Control - Indoxacarb / Chlorpyrifos", None, 1,
+             "Purpose: Spray Indoxacarb 0.7 ml/L OR Chlorpyrifos 2 ml/L for fruit/shoot borer. "
+             "Benefit: Continues the rotation discipline that has protected yield through peak and sustained production. "
+             "Timing: DAS 84-90, week 13. "
+             "Weather: Evening application preferred. "
+             "Follow-up: Re-assess pest pressure as the season moves toward late production."),
+            (87, ActivityCategory.FERTILIZER, "Pod Quality Spray - Potassium Nitrate", None, 1,
+             "Purpose: Apply Potassium Nitrate (NOP 13:00:45 / SOP) at 5 g/L as a foliar spray. "
+             "Benefit: Improves pod size, colour, shelf life and market quality during this critical mid-late production window. "
+             "Timing: DAS 84-90, week 13. "
+             "Weather: Spray in early morning or evening. "
+             "Follow-up: Sample pods at the next harvest for colour and firmness improvement."),
 
-            # --- Fruit-quality-focused sprays -----------------------------
-            (44, ActivityCategory.SPRAY, "Fruit Quality Management - Colour & Uniformity", 15, 5,
-             "Purpose: Apply a potassium-rich and micronutrient (boron, magnesium) foliar spray timed to the fruiting flush, specifically targeting fruit colour, size uniformity and reduced curvature. "
-             "Benefit: Improves pod colour and shape consistency, reduces curved/misshapen pods, and improves shelf life after picking -- all of which directly raise the price the produce fetches in the market. "
-             "Timing: Every 15 days from early fruiting through late harvest. "
-             "Weather: Spray in early morning or late evening; avoid hot, sunny conditions or rain within a few hours, both of which reduce leaf uptake. "
-             "Follow-up: Sample a few pods at the next harvest for colour, straightness and size, and note any improvement or deficiency symptom for the next AI/Observation review."),
+            # ===== Week 14 (DAS 91-97): Late Production ============================
+            (91, ActivityCategory.IRRIGATION, "Reduce Slightly", None, 1,
+             "Purpose: Reduce irrigation slightly as the plant enters senescence. "
+             "Benefit: Matches water input to the plant's declining demand as production winds down. "
+             "Timing: DAS 91-97, week 14. "
+             "Weather: Adjust based on remaining canopy and pod load. "
+             "Follow-up: Continue reducing gradually through week 15."),
+            (92, ActivityCategory.HARVEST, "Harvest - Yield Declining", 2, 3,
+             "Purpose: Continue harvesting; yield will drop but pods are still being picked every 2-3 days. "
+             "Benefit: Capturing the remaining marketable yield is still worthwhile even as volume declines. "
+             "Timing: DAS 91-97, week 14. "
+             "Weather: Pick in the morning. "
+             "Follow-up: Log Revenue for each picking, even if smaller."),
+            (93, ActivityCategory.SPRAY, "Minimal Spray", None, 1,
+             "Purpose: Observe economic threshold; spray only if genuinely needed. "
+             "Benefit: Avoids unnecessary input cost on a crop that is naturally winding down. "
+             "Timing: DAS 91-97, week 14. "
+             "Weather: No specific precaution. "
+             "Follow-up: Reassess weekly whether any spray is still justified."),
+            (94, ActivityCategory.OTHER, "Seed Collection", None, 1,
+             "Purpose: Collect seeds from the best-performing pods for next season. "
+             "Benefit: Saves proven, locally-adapted seed stock and reduces next season's seed cost. "
+             "Timing: DAS 91-97, week 14. "
+             "Weather: Allow selected pods to mature fully before collecting seed. "
+             "Follow-up: Continue selecting seed pods through weeks 15-16."),
 
-            # --- First harvest and the long picking cycle -----------------
-            (47, ActivityCategory.HARVEST, "First Harvest - Tender Pod Picking", None, 1,
-             "Purpose: First picking of tender okra pods, approximately 8-10 cm long. "
-             "Benefit: Picking at the correct tender stage (not overgrown/fibrous) is the single biggest driver of grade and price realized at market. "
-             "Timing: Approximately 45-50 DAS; pick in the morning while pods are firm and before the day heats up. "
-             "Weather: Avoid picking in wet conditions (rain/heavy dew) since wet handling encourages post-harvest rot and reduces shelf life. "
-             "Follow-up: Log the harvested quantity as Revenue against today's sale, and inspect plants for the next flush of flowers while picking."),
-            (49, ActivityCategory.HARVEST, "Harvest Cycle - Tender Pod Picking", 2, 31,
-             "Purpose: Continue picking tender pods (8-10 cm) every 2 days through the full harvest window. "
-             "Benefit: A strict 2-day picking interval is what commercial growers use to prevent pods from crossing into the fibrous, lower-grade stage -- missing even one cycle measurably drops quality and price. "
-             "Timing: Every 2 days from approximately 49 DAS through 100-110 DAS; always pick in the morning. "
-             "Weather: If heavy rain falls on a picking day, pick as soon as the field is walkable rather than skipping, since pods keep maturing regardless of weather. "
-             "Follow-up: Record each picking's quantity and sale as Revenue on the same day -- revenue entries should track the harvest calendar one-to-one rather than being batched up later."),
+            # ===== Week 15 (DAS 98-104): Winding Down ================================
+            (98, ActivityCategory.IRRIGATION, "Minimal Irrigation", None, 1,
+             "Purpose: Reduce water significantly as the crop winds down. "
+             "Benefit: Matches input to the plant's much-reduced demand, avoiding wasted water. "
+             "Timing: DAS 98-104, week 15. "
+             "Weather: No specific precaution. "
+             "Follow-up: Plan to stop irrigation entirely by week 16."),
+            (99, ActivityCategory.HARVEST, "Collect Remaining Pods", 2, 3,
+             "Purpose: Harvest remaining tender pods. "
+             "Benefit: Captures the last meaningfully marketable pods before the crop is terminated. "
+             "Timing: DAS 98-104, week 15. "
+             "Weather: Pick in the morning. "
+             "Follow-up: Log Revenue for any remaining marketable quantity."),
+            (100, ActivityCategory.OTHER, "Reduce All Inputs", None, 1,
+             "Purpose: Begin reducing all inputs and start planning for crop termination. "
+             "Benefit: Avoids spending on inputs the crop can no longer economically use. "
+             "Timing: DAS 98-104, week 15. "
+             "Weather: No specific precaution. "
+             "Follow-up: Plan the crop removal timeline for weeks 16-17."),
 
-            # --- Late-season fruit quality / shelf-life focus -------------
-            (60, ActivityCategory.SPRAY, "Fruit Quality Management - Shelf Life & Market Grade", 15, 4,
-             "Purpose: Calcium and potassium-focused foliar application aimed at firmer pod texture and longer post-harvest shelf life. "
-             "Benefit: Firmer, better-holding pods reduce rejection at the market and allow a one-day transport/storage buffer without quality loss. "
-             "Timing: Every 15 days from mid-harvest through late fruiting. "
-             "Weather: Apply in cooler parts of the day; avoid application right before expected rain. "
-             "Follow-up: Grade a sample of the next 2-3 harvests for firmness and note any softening or blemish patterns."),
+            # ===== Week 16 (DAS 105-111): Final Harvest ================================
+            (105, ActivityCategory.IRRIGATION, "Stop Irrigation", None, 1,
+             "Purpose: Stop irrigation -- no more is needed. "
+             "Benefit: The crop is past the point where irrigation improves yield or quality. "
+             "Timing: DAS 105-111, week 16. "
+             "Weather: No specific precaution. "
+             "Follow-up: Allow soil to dry ahead of crop removal."),
+            (107, ActivityCategory.HARVEST, "Final Marketable Pods", None, 1,
+             "Purpose: Harvest the last marketable pods. "
+             "Benefit: Captures the final economic value from the crop before termination. "
+             "Timing: DAS 105-111, week 16. "
+             "Weather: Pick in the morning. "
+             "Follow-up: Log Revenue for the final marketable harvest."),
+            (108, ActivityCategory.OTHER, "Seed Pods", None, 1,
+             "Purpose: Allow the best pods to fully mature for seed saving. "
+             "Benefit: Completes the seed-selection process started in week 14 with fully matured, high-quality seed. "
+             "Timing: DAS 105-111, week 16. "
+             "Weather: Let pods dry naturally on the plant. "
+             "Follow-up: Collect and store seed pods before crop removal."),
 
-            # --- Continued plant health assessment late in the season ----
-            (70, ActivityCategory.OTHER, "Plant Health Assessment - Mid Harvest", 14, 4,
-             "Purpose: Walk-through assessment of overall plant vigour, leaf health, flowering rate and fruit load after repeated harvesting. "
-             "Benefit: Confirms whether nutrition and recovery sprays are keeping pace with the demands of continuous picking, so adjustments can be made before yield actually drops. "
-             "Timing: Every 14 days from mid-harvest onward. "
-             "Weather: Conduct on a dry day for an accurate read on leaf condition (wet foliage can mask early disease/deficiency signs). "
-             "Follow-up: If vigour is declining, shorten the foliar nutrition/recovery interval and capture photos as an Observation for AI review."),
+            # ===== Week 17 (DAS 112-118): Crop Removal ================================
+            (114, ActivityCategory.HARVEST, "Last Harvest", None, 1,
+             "Purpose: Final picking of any remaining pods. "
+             "Benefit: Ensures nothing marketable is left in the field before uprooting. "
+             "Timing: DAS 112-118, week 17. "
+             "Weather: No specific precaution. "
+             "Follow-up: Log any final Revenue, then proceed to crop removal."),
+            (115, ActivityCategory.OTHER, "Begin Crop Removal", None, 1,
+             "Purpose: Uproot plants, chop and incorporate into soil or compost. "
+             "Benefit: Returns organic matter to the soil and clears the field for the next season. "
+             "Timing: DAS 112-118, week 17. "
+             "Weather: Do on dry ground for easier uprooting. "
+             "Follow-up: Proceed to field clearing and deep ploughing in week 18."),
+
+            # ===== Week 18 (DAS 119-125): Crop End ====================================
+            (120, ActivityCategory.OTHER, "Field Clearing", None, 1,
+             "Purpose: Remove all plant debris from the field. "
+             "Benefit: Reduces pest and disease carryover into the next crop cycle. "
+             "Timing: DAS 119-125, week 18. "
+             "Weather: No specific precaution. "
+             "Follow-up: Proceed to deep ploughing."),
+            (122, ActivityCategory.LAND_PREPARATION, "Deep Ploughing", None, 1,
+             "Purpose: Plough the field deeply; apply lime if soil pH is low. "
+             "Benefit: Breaks up soil and corrects pH ahead of the next season's crop. "
+             "Timing: DAS 119-125, week 18. "
+             "Weather: Plough when soil is workable, not waterlogged. "
+             "Follow-up: Test soil pH if uncertain before deciding on lime application."),
+            (124, ActivityCategory.OTHER, "Record Keeping", None, 1,
+             "Purpose: Note yield, pest issues, and variety performance for next season's planning. "
+             "Benefit: Builds a season-over-season record that improves decisions for future crops. "
+             "Timing: DAS 119-125, week 18, end of season. "
+             "Weather: No specific precaution. "
+             "Follow-up: Review this record when planning next season's Bhindi crop."),
         ],
     },
 ]
