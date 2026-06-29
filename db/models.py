@@ -67,48 +67,73 @@ from db.base import Base
 # ---------------------------------------------------------------------------
 
 class ActivityCategory(str, enum.Enum):
-    LAND_PREPARATION = "Land Preparation"
-    SOWING = "Sowing"
-    IRRIGATION = "Irrigation"
-    FERTILIZER = "Fertilizer"
-    SPRAY = "Spray"
-    WEEDING = "Weeding"
-    HARVEST = "Harvest"
-    OTHER = "Other"
+    LAND_PREPARATION = "LAND_PREPARATION"
+    SOWING = "SOWING"
+    IRRIGATION = "IRRIGATION"
+    FERTILIZER = "FERTILIZER"
+    SPRAY = "SPRAY"
+    WEEDING = "WEEDING"
+    HARVEST = "HARVEST"
+    OTHER = "OTHER"
+
+    # Human-readable labels for display in UI
+    @property
+    def label(self) -> str:
+        return self.name.replace("_", " ").title()
 
 
 class ActivityStatus(str, enum.Enum):
-    PENDING = "Pending"
-    COMPLETED = "Completed"
-    SKIPPED = "Skipped"
+    PENDING = "PENDING"
+    COMPLETED = "COMPLETED"
+    SKIPPED = "SKIPPED"
+
+    @property
+    def label(self) -> str:
+        return self.name.title()
 
 
 class ExpenseCategory(str, enum.Enum):
-    SEED = "Seed"
-    FERTILIZER = "Fertilizer"
-    CHEMICALS = "Chemicals"
-    LABOUR = "Labour"
-    IRRIGATION = "Irrigation"
-    MACHINERY = "Machinery"
-    TRANSPORT = "Transport"
-    MISCELLANEOUS = "Miscellaneous"
+    SEED = "SEED"
+    FERTILIZER = "FERTILIZER"
+    CHEMICALS = "CHEMICALS"
+    LABOUR = "LABOUR"
+    IRRIGATION = "IRRIGATION"
+    MACHINERY = "MACHINERY"
+    TRANSPORT = "TRANSPORT"
+    MISCELLANEOUS = "MISCELLANEOUS"
+
+    @property
+    def label(self) -> str:
+        return self.name.title()
 
 
 class SeasonStatus(str, enum.Enum):
-    ACTIVE = "Active"
-    COMPLETED = "Completed"
-    ABANDONED = "Abandoned"
+    ACTIVE = "ACTIVE"
+    COMPLETED = "COMPLETED"
+    ABANDONED = "ABANDONED"
+
+    @property
+    def label(self) -> str:
+        return self.name.title()
 
 
 class AlertPriority(str, enum.Enum):
-    GREEN = "Green"     # Upcoming
-    YELLOW = "Yellow"   # Due soon
-    RED = "Red"         # Overdue
+    GREEN = "GREEN"     # Upcoming
+    YELLOW = "YELLOW"  # Due soon
+    RED = "RED"         # Overdue
+
+    @property
+    def label(self) -> str:
+        return self.name.title()
 
 
 class ObservationSource(str, enum.Enum):
-    FARMER = "Farmer"   # Manually logged note/photo
+    FARMER = "FARMER"   # Manually logged note/photo
     AI = "AI"           # Derived/added by the AI engine (e.g. auto-tagged category)
+
+    @property
+    def label(self) -> str:
+        return self.name.title()
 
 
 # ---------------------------------------------------------------------------
