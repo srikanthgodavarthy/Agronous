@@ -102,10 +102,10 @@ with tab_seasons:
                 c2.markdown(f"📍 {farm_name}")
                 c3.markdown(f"🗓️ Sown {sowing_date.strftime('%d %b %Y')}")
                 c4.markdown(f"{area:.1f} {area_unit}")
-                badge = "🟢 Active" if status == "Active" else ("✅ Completed" if status == "Completed" else "⚪ Abandoned")
+                badge = "🟢 Active" if status == "ACTIVE" else ("✅ Completed" if status == "COMPLETED" else "⚪ Abandoned")
                 c5.markdown(badge)
 
-                if status == "Active":
+                if status == "ACTIVE":
                     bc1, bc2 = st.columns(2)
                     if bc1.button("Mark Completed", key=f"complete_{sid}"):
                         with session_scope() as session:
