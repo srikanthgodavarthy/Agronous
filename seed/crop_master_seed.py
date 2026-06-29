@@ -436,10 +436,10 @@ CROPS = [
              "Timing: DAS 56-62, week 9, then continuing every 2-3 days for the rest of the season. "
              "Weather: Avoid picking in wet conditions; wet handling encourages post-harvest rot. "
              "Follow-up: Log the harvested quantity as Revenue against today's sale."),
-            (59, ActivityCategory.SPRAY, "Continue FSB Monitoring", None, 1,
-             "Purpose: Maintain the fruit/shoot borer spray rotation now that harvest has begun. "
+            (59, ActivityCategory.SPRAY, "Whitefly Monitoring", None, 1,
+             "Purpose: Inspect underside of leaves for Whitefly, Thrips and Jassids. "
              "Benefit: Keeping a 5-7 day spray-to-harvest interval protects both yield and food safety. "
-             "Timing: DAS 56-62, week 9. "
+             "Timing: DAS 58-62, week 9. Threshold-based spray only. "
              "Weather: Spray in the evening, away from picking hours. "
              "Follow-up: Track the interval since the last spray before every harvest."),
             (60, ActivityCategory.FERTILIZER, "Fruiting Boost - MKP Spray", None, 1,
@@ -448,6 +448,12 @@ CROPS = [
              "Timing: DAS 56-62, week 9. "
              "Weather: Spray in early morning or evening. "
              "Follow-up: Continue regular potassium-focused feeding through peak production."),
+            (62, ActivityCategory.OTHER, "AI Observation", None, 1,
+             "Purpose: Capture field images -- leaf undersides, pod quality, any suspect plants -- and upload to the Observations tab. "
+             "Benefit: AI-assisted scouting catches emerging issues faster than visual inspection alone. "
+             "Timing: DAS 62, end of week 9. Weekly from here onward. "
+             "Weather: Capture in good light; morning preferred. "
+             "Follow-up: Review AI feedback and act on any flagged issues before next harvest."),
 
             # ===== Week 10 (DAS 63-69): Peak Production =======================
             (63, ActivityCategory.IRRIGATION, "Supplement If Dry", None, 1,
@@ -468,13 +474,19 @@ CROPS = [
              "Timing: DAS 63-69, week 10. "
              "Weather: Mite pressure rises in hot, dry conditions. "
              "Follow-up: Re-check leaf undersides at next monitoring."),
-            (66, ActivityCategory.SPRAY, "Cercospora Leaf Spot Control", None, 1,
-             "Purpose: Spray Mancozeb 2.5 g/L for Cercospora leaf spot. "
-             "Benefit: Prevents leaf spot disease from reducing photosynthetic area during peak production. "
-             "Timing: DAS 63-69, week 10. "
-             "Weather: Risk rises in humid, wet-leaf conditions typical of monsoon season. "
-             "Follow-up: Apply at first sign rather than waiting for spread."),
-            (67, ActivityCategory.OTHER, "Remove Pest-Damaged Pods", None, 1,
+            (66, ActivityCategory.SPRAY, "Disease Monitoring", None, 1,
+             "Purpose: Inspect for YVMV (yellow vein mosaic), Powdery Mildew and Cercospora leaf spot. Capture AI images. "
+             "Benefit: Early identification allows targeted intervention before the disease spreads. "
+             "Timing: DAS 65-69, week 10. Weekly from here onward. "
+             "Weather: Risk of Cercospora and mildew rises in humid, wet-leaf monsoon conditions. "
+             "Follow-up: Spray Mancozeb 2.5 g/L if Cercospora appears. Rogue YVMV plants immediately."),
+            (67, ActivityCategory.FERTILIZER, "Foliar Nutrition", None, 1,
+             "Purpose: Apply Water Soluble NPK 19:19:19 (Multi-K) at 5 g/L as foliar spray. "
+             "Benefit: Replenishes nutrients continuously exported by heavy picking. "
+             "Timing: DAS 67, week 10. Repeat every 10-12 days through end of season. "
+             "Weather: Spray in early morning or evening. "
+             "Follow-up: Alternate with Calcium + Boron and Potassium Nitrate on subsequent cycles."),
+            (68, ActivityCategory.OTHER, "Remove Pest-Damaged Pods", None, 1,
              "Purpose: Destroy pest-damaged pods to reduce FSB load in the field. "
              "Benefit: Removing infested pods breaks the pest's breeding cycle and protects the next flush. "
              "Timing: DAS 63-69, week 10. "
@@ -500,18 +512,24 @@ CROPS = [
              "Timing: DAS 70-76, week 11. "
              "Weather: Broadcast and irrigate; avoid applying just before heavy rain. "
              "Follow-up: Watch plant vigour over the following 1-2 weeks for response."),
-            (73, ActivityCategory.SPRAY, "Broad Spectrum Control", None, 1,
-             "Purpose: Spray Profenofos 2 ml/L if multiple pests are observed together. "
-             "Benefit: A broad-spectrum option for mixed infestations where rotating single-target products isn't keeping pace. "
-             "Timing: DAS 70-76, week 11. "
-             "Weather: Avoid spraying in windy conditions or ahead of rain. "
-             "Follow-up: Return to targeted rotation once the mixed outbreak is under control."),
+            (73, ActivityCategory.FERTILIZER, "Calcium + Boron", None, 1,
+             "Purpose: Apply Calcium Nitrate (CaNO3) 2 g/L + Borax 1 g/L as foliar spray. "
+             "Benefit: Reduces blossom drop and improves pod set and firmness during sustained production. "
+             "Timing: DAS 73, week 11. Repeat every 10-12 days alternating with 19:19:19. "
+             "Weather: Spray in early morning or evening. "
+             "Follow-up: Combine with Boron for maximum fruit set benefit."),
             (74, ActivityCategory.FERTILIZER, "Plant Stamina - Seaweed Spray", None, 1,
              "Purpose: Apply Seaweed Extract (Seasol / Kelpak / any brand) at 3 ml/L as a foliar spray. "
              "Benefit: Improves plant stamina and stress tolerance during the demanding peak-production period. "
              "Timing: DAS 70-76, week 11. "
              "Weather: Spray in early morning or evening. "
              "Follow-up: Repeat periodically through continued production if plants show fatigue."),
+            (75, ActivityCategory.SPRAY, "Pest Monitoring", None, 1,
+             "Purpose: Observe underside of leaves for Whitefly, Thrips, Jassids and Fruit Borer. Threshold-based spray only. "
+             "Benefit: Weekly scouting prevents population build-up without over-spraying. "
+             "Timing: DAS 75, week 11. Weekly from here through end of season. "
+             "Weather: Scout in morning for accurate population count. "
+             "Follow-up: Spray Imidacloprid 0.5 ml/L if whitefly threshold crossed; Spinosad 0.3 ml/L for FSB."),
 
             # ===== Week 12 (DAS 77-83): Continued Production =====================
             (77, ActivityCategory.IRRIGATION, "Regular Irrigation", 5, 1,
@@ -526,18 +544,18 @@ CROPS = [
              "Timing: DAS 77-83, week 12. "
              "Weather: Pick in the morning. "
              "Follow-up: Log Revenue for each picking."),
-            (79, ActivityCategory.SPRAY, "FSB Rotation Continues", None, 1,
-             "Purpose: Rotate chemicals to avoid resistance build-up in the fruit/shoot borer population. "
-             "Benefit: Continued rotation discipline protects the effectiveness of all products used earlier in the season. "
-             "Timing: DAS 77-83, week 12. "
-             "Weather: Evening application preferred. "
-             "Follow-up: Track which product was used last to ensure proper rotation."),
-            (80, ActivityCategory.SPRAY, "YVMV Check", None, 1,
-             "Purpose: Check for Yellow Vein Mosaic Virus (YVMV) symptoms. "
-             "Benefit: Immediately roguing out infected plants prevents the whitefly-borne virus from spreading through the field. "
-             "Timing: DAS 77-83, week 12. "
+            (79, ActivityCategory.FERTILIZER, "MKP Spray", None, 1,
+             "Purpose: Apply Mono Potassium Phosphate (MKP 00:52:34) at 5 g/L as foliar spray. "
+             "Benefit: Improves pod size, marketable quality and shelf life heading into late production. "
+             "Timing: DAS 79, week 12. "
+             "Weather: Spray in early morning or evening. "
+             "Follow-up: Alternate with 19:19:19 and KNO3 on subsequent nutrition cycles."),
+            (80, ActivityCategory.SPRAY, "Disease Monitoring", None, 1,
+             "Purpose: Check for YVMV (yellow vein mosaic), Powdery Mildew and Cercospora. Capture AI images. "
+             "Benefit: Immediately roguing out YVMV-infected plants prevents the whitefly-borne virus from spreading. "
+             "Timing: DAS 77-83, week 12. Weekly monitoring. "
              "Weather: Whitefly vector pressure can rise in specific humidity windows. "
-             "Follow-up: Immediately rogue out and destroy any plants showing yellow vein mosaic symptoms."),
+             "Follow-up: Rogue and destroy any plants showing yellow vein mosaic symptoms immediately."),
             (81, ActivityCategory.OTHER, "Canopy Management", None, 1,
              "Purpose: Remove old or unproductive lower branches. "
              "Benefit: Improves airflow through the canopy, reducing humidity-driven disease pressure. "
@@ -570,6 +588,18 @@ CROPS = [
              "Timing: DAS 84-90, week 13. "
              "Weather: Spray in early morning or evening. "
              "Follow-up: Sample pods at the next harvest for colour and firmness improvement."),
+            (88, ActivityCategory.FERTILIZER, "Seaweed Biostimulant", None, 1,
+             "Purpose: Apply Seaweed Extract 3 ml/L as foliar spray. "
+             "Benefit: Sustains plant energy and pod quality as the crop enters mid-late production. "
+             "Timing: DAS 88, week 13. "
+             "Weather: Spray in early morning or evening. "
+             "Follow-up: Continue alternating with NPK foliar through week 14."),
+            (89, ActivityCategory.SPRAY, "Pest Monitoring", None, 1,
+             "Purpose: Observe underside of leaves for Whitefly, Thrips, Jassids and Fruit Borer. Threshold-based spray only. "
+             "Benefit: Avoids unnecessary input cost while keeping pest pressure in check as season winds down. "
+             "Timing: DAS 89, week 13. Weekly scouting. "
+             "Weather: Scout in morning. "
+             "Follow-up: Log observations. Spray only if threshold is crossed."),
 
             # ===== Week 14 (DAS 91-97): Late Production ============================
             (91, ActivityCategory.IRRIGATION, "Reduce Slightly", None, 1,
