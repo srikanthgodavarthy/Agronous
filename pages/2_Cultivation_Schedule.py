@@ -1,6 +1,5 @@
 """
-Cultivation Schedule — category tabs, week grouping, product hint expanders.
-Cards use native Streamlit components (no unsafe HTML inside containers).
+Cultivation Schedule — week sections scrolling vertically, portrait cards side by side.
 """
 from __future__ import annotations
 
@@ -17,43 +16,33 @@ from services.schedule_engine import calculate_das
 
 st.set_page_config(page_title="Cultivation Schedule", page_icon="🌿", layout="wide")
 
-# ── Design tokens ─────────────────────────────────────────────────────────────
 CATEGORY_META = {
-    "IRRIGATION":       {"icon": "💧", "color": "#1565C0", "label": "Irrigation"},
-    "FERTILIZER":       {"icon": "🌱", "color": "#2E7D32", "label": "Fertilizer"},
-    "SPRAY":            {"icon": "🧴", "color": "#6A1B9A", "label": "Spray / Pest"},
-    "WEEDING":          {"icon": "🌿", "color": "#E65100", "label": "Weeding"},
-    "LAND_PREPARATION": {"icon": "🚜", "color": "#4E342E", "label": "Land Prep"},
-    "SOWING":           {"icon": "🌰", "color": "#558B2F", "label": "Sowing"},
-    "HARVEST":          {"icon": "🌾", "color": "#F9A825", "label": "Harvest"},
-    "OTHER":            {"icon": "📋", "color": "#546E7A", "label": "Other"},
+    "IRRIGATION":       {"icon": "💧", "bg": "rgba(60,130,200,0.10)",  "label": "Irrigation"},
+    "FERTILIZER":       {"icon": "🌱", "bg": "rgba(100,170,60,0.10)",  "label": "Fertilizer"},
+    "SPRAY":            {"icon": "🧴", "bg": "rgba(130,60,180,0.10)",  "label": "Spray/Pest"},
+    "WEEDING":          {"icon": "🌾", "bg": "rgba(200,100,30,0.10)",  "label": "Weeding"},
+    "LAND_PREPARATION": {"icon": "🚜", "bg": "rgba(180,120,60,0.10)",  "label": "Land Prep"},
+    "SOWING":           {"icon": "🌰", "bg": "rgba(80,160,80,0.10)",   "label": "Sowing"},
+    "HARVEST":          {"icon": "🌾", "bg": "rgba(200,160,20,0.10)",  "label": "Harvest"},
+    "OTHER":            {"icon": "📋", "bg": "rgba(100,110,120,0.10)", "label": "Other"},
 }
 
-STATUS_ICON = {"PENDING": "⏳", "COMPLETED": "✅", "SKIPPED": "⏭️"}
+STATUS_CARD_STYLE = {
+    "PENDING":   "background:#fffbf0; border-color:#f5d98a;",
+    "COMPLETED": "background:#f0faf4; border-color:#b6e4cb;",
+    "SKIPPED":   "background:#f5f5f4; border-color:#d3d1c7;",
+    "OVERDUE":   "background:#fdf2f2; border-color:#f0b4b4;",
+}
 
 PRODUCT_HINTS = {
     "dap":                   {"dose": "40 kg/acre", "combo": "DAP 18:46:0 + MOP 35 kg/acre", "note": "Basal placement in furrows before sowing."},
     "mop":                   {"dose": "35 kg/acre", "combo": "MOP 0:0:60 + DAP 40 kg/acre",  "note": "Mix into soil; apply together with DAP at sowing."},
     "urea":                  {"dose": "30 kg/acre", "combo": "Urea 46% N",                    "note": "Broadcast between rows, irrigate immediately."},
-    "can":                   {"dose": "40 kg/acre", "combo": "CAN 25% N (Calcium Ammonium Nitrate)", "note": "Better on alkaline soils; less N volatilisation."},
-    "ammonium sulphate":     {"dose": "75 kg/acre (1st) · 30 kg/acre (later)", "combo": "AS 20.6% N — acidifying; good for red soils", "note": "Broadcast, irrigate same day."},
-    "boron":                 {"dose": "1 g/L",      "combo": "Borax 1 g/L + Calcium Nitrate 2 g/L",      "note": "Evening spray only. Improves fruit set, reduces flower drop."},
-    "zinc":                  {"dose": "0.5 g/L",    "combo": "ZnSO₄ 0.5 g/L + Borax 1 g/L",             "note": "Micronutrient combo for red soils after maize."},
-    "mkp":                   {"dose": "3 g/L",      "combo": "MKP 0:52:34 (foliar only)",                "note": "Boosts pod setting and early yield."},
-    "npk 19":                {"dose": "5 g/L",      "combo": "NPK 19:19:19 water-soluble (Multi-K)",     "note": "Foliar vigour spray. Safe to tank-mix with most fungicides."},
-    "seaweed":               {"dose": "3 ml/L",     "combo": "Seaweed Extract 3 ml/L + MKP 3 g/L",      "note": "Stress tolerance during peak production. Evening spray."},
-    "potassium nitrate":     {"dose": "5 g/L",      "combo": "Potassium Nitrate NOP 13:0:45",            "note": "Improves pod size, colour, shelf-life."},
-    "spinosad":              {"dose": "0.3 ml/L",   "combo": "Spinosad 45 SC — solo",                    "note": "FSB control. Evening only. PHI: 1 day. Rotate with Emamectin."},
-    "emamectin":             {"dose": "0.4 ml/L",   "combo": "Emamectin Benzoate 5 SG — solo",          "note": "Rotate from Spinosad. PHI: 5 days."},
-    "imidacloprid":          {"dose": "0.5 ml/L",   "combo": "Imidacloprid 17.8 SL + Neem Oil 3 ml/L", "note": "YVMV vector (whitefly) control. PHI: 7 days."},
-    "chlorantraniliprole":   {"dose": "0.3 ml/L",   "combo": "Coragen 18.5 SC — solo or + Thiamethoxam","note": "Shoot & fruit borer. PHI: 1 day."},
-    "profenofos":            {"dose": "2 ml/L",     "combo": "Profenofos 50 EC + Cypermethrin 5 EC 1 ml/L","note": "Broad spectrum. PHI: 7 days."},
-    "indoxacarb":            {"dose": "0.7 ml/L",   "combo": "Indoxacarb 14.5 SC — solo",               "note": "FSB late season. PHI: 3 days."},
-    "abamectin":             {"dose": "0.5 ml/L",   "combo": "Abamectin 1.9 EC + Wettable Sulphur 2 g/L","note": "Red spider mite + powdery mildew. PHI: 3 days."},
-    "mancozeb":              {"dose": "2.5 g/L",    "combo": "Mancozeb 75 WP + Carbendazim 0.5 g/L",   "note": "Cercospora leaf spot. Apply at first sign."},
-    "wettable sulphur":      {"dose": "3 g/L",      "combo": "Wettable Sulphur 80 WP — solo",           "note": "Powdery mildew. Do NOT spray when temp > 35°C."},
-    "neem":                  {"dose": "5 ml/L + Teepol 1 ml/L", "combo": "Neem Oil 5000 ppm + Teepol 1 ml/L", "note": "Broad mite/sucking pests. Evening spray only."},
-    "chlorpyrifos":          {"dose": "2–2.5 ml/L", "combo": "Chlorpyrifos 20 EC + Cypermethrin 5 EC 1 ml/L","note": "Cutworm / broad spectrum. PHI: 15 days."},
+    "spinosad":              {"dose": "0.3 ml/L",   "combo": "Spinosad 45 SC",                "note": "FSB control. Evening only. PHI: 1 day."},
+    "emamectin":             {"dose": "0.4 ml/L",   "combo": "Emamectin Benzoate 5 SG",       "note": "Rotate from Spinosad. PHI: 5 days."},
+    "imidacloprid":          {"dose": "0.5 ml/L",   "combo": "Imidacloprid 17.8 SL",          "note": "YVMV vector control. PHI: 7 days."},
+    "mancozeb":              {"dose": "2.5 g/L",    "combo": "Mancozeb 75 WP",                "note": "Cercospora leaf spot. Apply at first sign."},
+    "neem":                  {"dose": "5 ml/L",     "combo": "Neem Oil 5000 ppm",             "note": "Broad mite/sucking pests. Evening spray only."},
 }
 
 def _get_hint(name: str, remarks: str) -> dict | None:
@@ -73,8 +62,54 @@ def _week_label(sowing_date: date, activity_date: date) -> str:
 def _week_num(activity_date: date, sowing_date: date) -> int:
     return max(1, ((activity_date - sowing_date).days // 7) + 1)
 
+def _effective_status(row: dict, today: date) -> str:
+    if row["status"] == "PENDING" and row["activity_date"] < today:
+        return "OVERDUE"
+    return row["status"]
 
-# ── Page header ───────────────────────────────────────────────────────────────
+# ── Styles ────────────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+.week-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+    color: #185FA5; background: #E6F1FB;
+    border: 0.5px solid #B5D4F4;
+    padding: 4px 12px; border-radius: 20px; margin: 18px 0 12px 0;
+}
+.cards-row {
+    display: flex; flex-direction: row; gap: 10px; flex-wrap: wrap; margin-bottom: 6px;
+}
+.act-card {
+    border-radius: 12px; padding: 14px 12px;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    border: 0.5px solid transparent;
+    width: 140px; min-height: 170px; position: relative; box-sizing: border-box;
+}
+.act-icon {
+    width: 38px; height: 38px; border-radius: 10px; font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+}
+.act-name {
+    font-size: 12px; font-weight: 500; color: #1a1a1a;
+    text-align: center; line-height: 1.35;
+}
+.act-meta {
+    font-size: 10px; color: #888; text-align: center; line-height: 1.5;
+}
+.act-spacer { flex: 1; }
+.act-btns { display: flex; gap: 8px; justify-content: center; }
+.act-btn {
+    width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; background: white; font-size: 12px;
+    text-decoration: none;
+}
+.btn-done { border-color: #4caf7d; color: #4caf7d; }
+.btn-skip { border-color: #aaa9a2; color: #aaa9a2; }
+</style>
+""", unsafe_allow_html=True)
+
 ctx = require_active_season()
 season_id   = ctx["season_id"]
 sowing_date = ctx["sowing_date"]
@@ -86,7 +121,6 @@ st.caption(
     + (f" ({ctx['variety']})" if ctx["variety"] else "")
 )
 
-# ── Load all activities once ──────────────────────────────────────────────────
 with session_scope() as session:
     raw = schedule_repo.list_activities(session, season_id, status=None)
     all_activities = [
@@ -103,146 +137,113 @@ with session_scope() as session:
         for a in raw
     ]
 
-
-# ── Render one activity card (pure native Streamlit) ──────────────────────────
-def render_card(row: dict, tab_idx: int = 0) -> None:
-    meta      = CATEGORY_META.get(row["category"], CATEGORY_META["OTHER"])
-    is_overdue = row["status"] == "PENDING" and row["activity_date"] < today
-    hint       = _get_hint(row["name"], row["remarks"])
-
-    with st.container(border=True):
-        # ── Title row ────────────────────────────────────────────────────────
-        left, right = st.columns([5, 1])
-        title_parts = [meta["icon"], f"**{row['name']}**"]
-        if row["is_custom"]:
-            title_parts.append("🏷️")
-        if is_overdue:
-            title_parts.append("🔴 *overdue*")
-        left.markdown(" ".join(title_parts))
-        right.markdown(
-            f"`{STATUS_ICON.get(row['status'], '')} {row['status']}`"
-        )
-
-        # ── Meta line ────────────────────────────────────────────────────────
-        date_str = row["activity_date"].strftime("%d %b %Y")
-        st.caption(
-            f"📅 {date_str}  ·  DAS {row['das']}  ·  "
-            f":{('blue' if row['category']=='IRRIGATION' else 'green' if row['category'] in ('FERTILIZER','SOWING') else 'violet' if row['category']=='SPRAY' else 'orange' if row['category'] in ('WEEDING','HARVEST') else 'gray')}[{meta['label']}]"
-        )
-
-        # ── Remarks ──────────────────────────────────────────────────────────
-        if row["remarks"]:
-            st.markdown(f"<small style='color:#555'>{row['remarks']}</small>", unsafe_allow_html=True)
-
-        # ── Product hint expander ─────────────────────────────────────────────
-        if hint and row["category"] in ("FERTILIZER", "SPRAY"):
-            with st.expander(f"📦 {hint['combo'].split('—')[0].split('+')[0].strip()} — dosage & mix"):
-                c1, c2 = st.columns([1, 2])
-                c1.markdown("**Mix / Product**")
-                c2.markdown(hint["combo"])
-                c1.markdown("**Dose**")
-                c2.markdown(hint["dose"])
-                c1.markdown("**Field note**")
-                c2.markdown(hint["note"])
-
-        # ── Manage popover ───────────────────────────────────────────────────
-        with st.popover("⚙ Manage"):
-            with st.form(f"manage_{tab_idx}_{row['id']}"):
-                new_date    = st.date_input("Date",    value=row["activity_date"], key=f"d_{tab_idx}_{row['id']}")
-                new_remarks = st.text_area("Remarks",  value=row["remarks"],       key=f"r_{tab_idx}_{row['id']}", height=70)
-                sc, cc, skc = st.columns(3)
-                save     = sc.form_submit_button("💾 Save")
-                complete = cc.form_submit_button("✅ Done")
-                skip     = skc.form_submit_button("⏭ Skip")
-
-                if save or complete or skip:
-                    _err = None
-                    with session_scope() as session:
-                        act = schedule_repo.get_activity(session, row["id"])
-                        if act is None:
-                            _err = "Activity not found."
-                        else:
-                            schedule_repo.update_activity(session, act, activity_date=new_date, remarks=new_remarks or None)
-                            if complete:
-                                schedule_repo.mark_complete(session, act)
-                            elif skip:
-                                schedule_repo.mark_skipped(session, act)
-                    if _err:
-                        st.error(_err)
-                    else:
-                        st.rerun()
-
-            if row["status"] != "PENDING":
-                if st.button("↩ Reopen", key=f"reopen_{tab_idx}_{row['id']}"):
-                    with session_scope() as session:
-                        act = schedule_repo.get_activity(session, row["id"])
-                        schedule_repo.reopen(session, act)
-                    st.rerun()
-
-            if row["is_custom"]:
-                if st.button("🗑 Delete", key=f"delete_{tab_idx}_{row['id']}"):
-                    with session_scope() as session:
-                        act = schedule_repo.get_activity(session, row["id"])
-                        schedule_repo.delete_activity(session, act)
-                    st.rerun()
-
-
-# ── Render a filtered + week-grouped list ────────────────────────────────────
-def render_list(activities: list[dict], status_val: str, tab_idx: int = 0) -> None:
-    filtered = activities if status_val == "All" else [a for a in activities if a["status"] == status_val]
-    if not filtered:
-        st.info("No activities match this filter.")
-        return
-
-    sorted_acts = sorted(filtered, key=lambda a: a["activity_date"])
-    for week_num, group in groupby(sorted_acts, key=lambda a: _week_num(a["activity_date"], sowing_date)):
-        items = list(group)
-        wlabel = _week_label(sowing_date, items[0]["activity_date"])
-        st.markdown(
-            f"<div style='display:inline-block; font-size:0.72rem; font-weight:700; "
-            f"letter-spacing:0.07em; padding:3px 12px; border-radius:20px; "
-            f"background:#F0F4F0; color:#2E7D32; margin:10px 0 6px 0;'>📅 {wlabel}</div>",
-            unsafe_allow_html=True,
-        )
-        for row in items:
-            render_card(row, tab_idx=tab_idx)
-
-
-# ── Category tabs ─────────────────────────────────────────────────────────────
 ALL_CATS   = [c.value for c in ActivityCategory]
 TAB_LABELS = ["🗓 All"] + [f"{CATEGORY_META[c]['icon']} {CATEGORY_META[c]['label']}" for c in ALL_CATS]
 
 tabs = st.tabs(TAB_LABELS)
 
-for i, tab in enumerate(tabs):
+for tab_idx, tab in enumerate(tabs):
     with tab:
         sf = st.radio(
             "Show",
             ["All", "Pending", "Completed", "Skipped"],
             horizontal=True,
-            key=f"sf_{i}",
+            key=f"sf_{tab_idx}",
             label_visibility="collapsed",
         )
         sv = {"All": "All", "Pending": "PENDING", "Completed": "COMPLETED", "Skipped": "SKIPPED"}[sf]
 
-        pool = all_activities if i == 0 else [a for a in all_activities if a["category"] == ALL_CATS[i - 1]]
-        render_list(pool, sv, tab_idx=i)
+        pool = all_activities if tab_idx == 0 else [a for a in all_activities if a["category"] == ALL_CATS[tab_idx - 1]]
+        filtered = pool if sv == "All" else [a for a in pool if a["status"] == sv]
 
+        if not filtered:
+            st.info("No activities match this filter.")
+            continue
 
-# ── Add custom activity ───────────────────────────────────────────────────────
+        sorted_acts = sorted(filtered, key=lambda a: a["activity_date"])
+
+        for week_num, group in groupby(sorted_acts, key=lambda a: _week_num(a["activity_date"], sowing_date)):
+            items = list(group)
+            wlabel = _week_label(sowing_date, items[0]["activity_date"])
+
+            st.markdown(f"<div class='week-pill'>📅 {wlabel}</div>", unsafe_allow_html=True)
+
+            # Build portrait cards HTML
+            cards_html = "<div class='cards-row'>"
+            for row in items:
+                eff_status = _effective_status(row, today)
+                card_style = STATUS_CARD_STYLE.get(eff_status, STATUS_CARD_STYLE["PENDING"])
+                meta        = CATEGORY_META.get(row["category"], CATEGORY_META["OTHER"])
+                date_str    = row["activity_date"].strftime("%d %b")
+
+                cards_html += f"""
+                <div class='act-card' style='{card_style}'>
+                    <div class='act-icon' style='background:{meta["bg"]}'>{meta["icon"]}</div>
+                    <div class='act-name'>{row["name"]}</div>
+                    <div class='act-meta'>{date_str}<br>DAS {row["das"]}<br>{meta["label"]}</div>
+                    <div class='act-spacer'></div>
+                    <div class='act-btns'>
+                        <span class='act-btn btn-done' title='Mark done'>✓</span>
+                        <span class='act-btn btn-skip' title='Skip'>⏭</span>
+                    </div>
+                </div>"""
+            cards_html += "</div>"
+            st.markdown(cards_html, unsafe_allow_html=True)
+
+            # Native Streamlit action forms for each card (hidden under expander)
+            for row in items:
+                eff_status = _effective_status(row, today)
+                hint = _get_hint(row["name"], row["remarks"])
+                with st.expander(f"⚙ {row['name']}", expanded=False):
+                    with st.form(f"manage_{tab_idx}_{row['id']}"):
+                        new_date    = st.date_input("Completion date", value=row["activity_date"], key=f"d_{tab_idx}_{row['id']}")
+                        new_remarks = st.text_area("Remarks", value=row["remarks"], key=f"r_{tab_idx}_{row['id']}", height=60)
+                        sc, cc, skc = st.columns(3)
+                        save     = sc.form_submit_button("💾 Save")
+                        complete = cc.form_submit_button("✅ Done")
+                        skip     = skc.form_submit_button("⏭ Skip")
+
+                        if save or complete or skip:
+                            with session_scope() as session:
+                                act = schedule_repo.get_activity(session, row["id"])
+                                if act:
+                                    schedule_repo.update_activity(session, act, activity_date=new_date, remarks=new_remarks or None)
+                                    if complete:
+                                        schedule_repo.mark_complete(session, act)
+                                    elif skip:
+                                        schedule_repo.mark_skipped(session, act)
+                            st.rerun()
+
+                    if row["status"] != "PENDING":
+                        if st.button("↩ Reopen", key=f"reopen_{tab_idx}_{row['id']}"):
+                            with session_scope() as session:
+                                act = schedule_repo.get_activity(session, row["id"])
+                                schedule_repo.reopen(session, act)
+                            st.rerun()
+
+                    if row["is_custom"]:
+                        if st.button("🗑 Delete", key=f"delete_{tab_idx}_{row['id']}"):
+                            with session_scope() as session:
+                                act = schedule_repo.get_activity(session, row["id"])
+                                schedule_repo.delete_activity(session, act)
+                            st.rerun()
+
+                    if hint and row["category"] in ("FERTILIZER", "SPRAY"):
+                        st.caption(f"📦 {hint['combo']} · {hint['dose']} · {hint['note']}")
+
+# ── Add custom activity ────────────────────────────────────────────────────────
 st.divider()
 with st.expander("➕ Add Custom Activity"):
     with st.form("add_custom", clear_on_submit=True):
         c1, c2, c3 = st.columns(3)
-        act_name     = c1.text_input("Name *", placeholder="e.g. Soil Testing")
-        cat_val      = c2.selectbox(
-            "Category *",
-            ALL_CATS,
+        act_name    = c1.text_input("Name *", placeholder="e.g. Soil Testing")
+        cat_val     = c2.selectbox(
+            "Category *", ALL_CATS,
             format_func=lambda v: f"{CATEGORY_META[v]['icon']} {CATEGORY_META[v]['label']}",
         )
-        act_date     = c3.date_input("Date *", value=date.today())
-        act_remarks  = st.text_input("Remarks / dosage (optional)")
-        sub          = st.form_submit_button("Add Activity", type="primary")
+        act_date    = c3.date_input("Date *", value=date.today())
+        act_remarks = st.text_input("Remarks / dosage (optional)")
+        sub         = st.form_submit_button("Add Activity", type="primary")
 
     if sub:
         if not act_name.strip():
