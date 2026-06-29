@@ -38,21 +38,27 @@ PRODUCT_HINTS = {
     "emamectin":  {"dose": "0.4 ml/L",  "note": "Rotate from Spinosad. PHI: 5 days."},
     "mancozeb":   {"dose": "2.5 g/L",   "note": "Cercospora leaf spot. Apply at first sign."},
     "neem":       {"dose": "5 ml/L",    "note": "Broad mite/sucking pests. Evening spray only."},
-    # Okra (Bhindi) specific -- one-off sprays/fertilizers, matched by name
-    "basal + 1st top":      {"dose": "50 + 20 kg/acre", "note": "Apply basal at sowing; band-place near root zone."},
-    "1st top dressing - nitrogen": {"dose": "40 kg/acre", "note": "Nitrogen split to fuel vegetative growth before flowering."},
-    "2nd top dressing":     {"dose": "25 + 15 kg/acre", "note": "Split N+K dose ahead of flowering."},
-    "sucking pest": {"dose": "0.5 g/L", "note": "Aphid/jassid/whitefly control. PHI: 5 days."},
-    "fruit borer / shoot borer": {"dose": "0.4 ml/L", "note": "Targets fruit & shoot borer at flowering. PHI: 5 days."},
-    "3rd fertigation - flowering booster": {"dose": "00:52:34 @ 5 kg/acre", "note": "P+K fertigation to reduce flower drop and boost fruit set."},
-    # Okra (Bhindi) -- recurring commercial-template activities, matched by
-    # name only (never by remarks text, which describes monitoring targets
-    # like YVMV/whitefly in prose and must never itself trigger a product
-    # hint on a scouting or harvest card).
-    "foliar nutrition - balanced npk":   {"dose": "19:19:19 @ 5 g/L",               "note": "Flowering/fruiting vigour. Early morning or evening only."},
-    "plant recovery & strength":         {"dose": "0:0:50 @ 3 g/L",                 "note": "Post-harvest recovery feed. Apply after a heavy picking round."},
-    "fruit quality management - colour": {"dose": "0:0:50 @ 3 g/L + Boron 1 g/L",  "note": "Improves colour, size uniformity and reduces curvature."},
-    "fruit quality management - shelf":  {"dose": "Calcium Nitrate 2 g/L + SOP 3 g/L", "note": "Firms pod texture for better shelf life and market grade."},
+    # Okra (Bhindi) -- Vikarabad checklist activities, matched by exact
+    # activity name. Mirrors 2_Cultivation_Schedule.py's PRODUCT_HINTS.
+    "basal dose - dap + potash":   {"dose": "40 + 35 kg/acre", "note": "Mix into soil before sowing."},
+    "top dressing #1 - ammonium sulphate": {"dose": "75 kg/acre", "note": "Broadcast between rows and irrigate immediately."},
+    "whitefly / aphid control - imidacloprid": {"dose": "0.5 ml/L", "note": "YVMV vector control. If high population."},
+    "zinc + boron foliar spray":   {"dose": "0.5 g/L + 1 g/L", "note": "Corrects micronutrient deficiency common after maize in red soils."},
+    "npk foliar spray":            {"dose": "5 g/L", "note": "Vegetative vigour ahead of flowering."},
+    "top dressing #2 - can or complex": {"dose": "40 kg/acre", "note": "Broadcast and irrigate."},
+    "mite / whitefly control - neem": {"dose": "5 ml/L", "note": "Evening only."},
+    "fsb control - spinosad":      {"dose": "0.3 ml/L", "note": "Evening only. Do not spray 10am-4pm flowering hours."},
+    "fruit set spray - boron + calcium": {"dose": "1 g/L + 2 g/L", "note": "Improves fruit set and reduces flower drop."},
+    "fsb control (rotation) - emamectin": {"dose": "0.4 ml/L", "note": "Rotate from Spinosad to avoid resistance build-up."},
+    "powdery mildew watch":        {"dose": "3 g/L", "note": "If white powder appears on leaves."},
+    "fruiting boost - mkp spray":  {"dose": "3 g/L", "note": "Boosts pod setting and early yield."},
+    "red spider mite control":     {"dose": "0.5 ml/L or 2 ml/L", "note": "For red spider mite."},
+    "cercospora leaf spot control": {"dose": "2.5 g/L", "note": "For Cercospora leaf spot."},
+    "top dressing #3 - ammonium sulphate + potash": {"dose": "30 + 20 kg/acre", "note": "Extends yield period."},
+    "broad spectrum control":      {"dose": "2 ml/L", "note": "If multiple pests observed together."},
+    "plant stamina - seaweed spray": {"dose": "3 ml/L", "note": "Improves plant stamina and stress tolerance."},
+    "fsb control - indoxacarb / chlorpyrifos": {"dose": "0.7 ml/L or 2 ml/L", "note": "Continued FSB rotation."},
+    "pod quality spray - potassium nitrate": {"dose": "5 g/L", "note": "Improves pod size, colour, shelf life and market quality."},
 }
 
 def _get_hint(name: str, remarks: str, category: str | None = None) -> dict | None:
