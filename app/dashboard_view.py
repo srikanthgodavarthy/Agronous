@@ -74,7 +74,7 @@ def render(ctx: dict) -> None:
     k5, k6, k7 = st.columns(3)
     k5.metric("Today's Tasks", len(today_tasks_data))
     k6.metric("Upcoming (7 days)", len(upcoming_tasks_data))
-    overdue_count = sum(1 for p, _ in alerts_data if p == "Red")
+    overdue_count = sum(1 for p, _ in alerts_data if p == "RED")
     k7.metric("Overdue", overdue_count, delta=None, delta_color="inverse")
 
     # ---------------- KPI Row 3: Money ----------------
@@ -99,7 +99,7 @@ def render(ctx: dict) -> None:
         st.subheader("🔔 Upcoming Alerts")
         if alerts_data:
             for priority, message in alerts_data[:8]:
-                color = {"Red": ALERT_RED, "Yellow": ALERT_YELLOW, "Green": ALERT_GREEN}[priority]
+                color = {"RED": ALERT_RED, "YELLOW": ALERT_YELLOW, "GREEN": ALERT_GREEN}[priority]
                 st.markdown(
                     f"<div style='padding:8px 12px; border-radius:6px; background:{color}1A; "
                     f"border-left:4px solid {color}; margin-bottom:6px;'>{message}</div>",
