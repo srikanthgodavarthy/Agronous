@@ -154,14 +154,11 @@ st.markdown("""
     border: 0.5px solid #B5D4F4;
     padding: 4px 12px; border-radius: 20px; margin: 18px 0 12px 0;
 }
-.cards-row {
-    display: flex; flex-direction: row; gap: 10px; flex-wrap: wrap; margin-bottom: 6px;
-}
 .act-card {
-    border-radius: 12px; padding: 14px 12px;
+    border-radius: 12px; padding: 14px 12px 10px 12px;
     display: flex; flex-direction: column; align-items: center; gap: 8px;
     border: 0.5px solid transparent;
-    width: 140px; min-height: 170px; position: relative; box-sizing: border-box;
+    min-height: 170px; position: relative; box-sizing: border-box;
 }
 .act-icon {
     width: 38px; height: 38px; border-radius: 10px; font-size: 18px;
@@ -195,15 +192,33 @@ st.markdown("""
 .status-SKIPPED   { background: #e6e5e1; color: #6b6a63; }
 .status-OVERDUE   { background: #fadcdc; color: #a32f2f; }
 .act-spacer { flex: 1; }
-.act-btns { display: flex; gap: 8px; justify-content: center; }
-.act-btn {
-    width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; background: white; font-size: 12px;
-    text-decoration: none;
+/* ── card-wrapper: card + buttons share the same rounded border ── */
+.card-wrapper {
+    border-radius: 12px; overflow: hidden;
+    display: flex; flex-direction: column;
 }
-.btn-done { border-color: #4caf7d; color: #4caf7d; }
-.btn-skip { border-color: #aaa9a2; color: #aaa9a2; }
+/* ── button row inside the card: flush to card bottom ── */
+.card-wrapper [data-testid="stHorizontalBlock"] {
+    padding: 0 !important; gap: 0 !important;
+}
+/* Make the Streamlit column containers flush inside the card */
+.card-wrapper [data-testid="column"] {
+    padding: 0 !important;
+}
+/* Small compact buttons that sit inside the card */
+.card-wrapper button[kind="secondary"] {
+    border-radius: 0 !important;
+    border-top: 1px solid rgba(0,0,0,0.08) !important;
+    border-left: none !important; border-right: none !important; border-bottom: none !important;
+    background: transparent !important;
+    padding: 4px 0 !important;
+    font-size: 13px !important;
+    min-height: 32px !important;
+    height: 32px !important;
+}
+.card-wrapper [data-testid="column"]:not(:last-child) button[kind="secondary"] {
+    border-right: 1px solid rgba(0,0,0,0.08) !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -265,24 +280,21 @@ for tab_idx, tab in enumerate(tabs):
 
             st.markdown(f"<div class='week-pill'>📅 {wlabel}</div>", unsafe_allow_html=True)
 
-            # Build portrait cards HTML -- the card itself is now the
-            # complete picture (icon, name, date/DAS, key dosage, status).
-            # No separate accordion/detail row is rendered below it; that
-            # information moved into the ⓘ Details dialog triggered by the
-            # button row rendered right under each card.
-            cards_html = "<div class='cards-row'>"
-            for row in items:
-                eff_status = _effective_status(row, today)
-                card_style = STATUS_CARD_STYLE.get(eff_status, STATUS_CARD_STYLE["PENDING"])
-                meta        = CATEGORY_META.get(row["category"], CATEGORY_META["OTHER"])
-                date_str    = row["activity_date"].strftime("%d %b")
-                hint        = _get_hint(row["name"], row["remarks"], row["category"])
-                quick       = _quick_line(row["name"], row["remarks"], row["category"], hint)
-
-                quick_block = f"<div class='act-quick'>{quick}</div>" if quick else ""
+            # Render each card in its own Streamlit column so the action
+            # buttons (✓ / ⏭ / ⓘ) sit inside the same column as the card,
+            # visually contained within the card boundary.
+            cols = st.columns(min(len(items), 6))
+            for col, row in zip(cols, items):
+                eff_status   = _effective_status(row, today)
+                card_style   = STATUS_CARD_STYLE.get(eff_status, STATUS_CARD_STYLE["PENDING"])
+                meta         = CATEGORY_META.get(row["category"], CATEGORY_META["OTHER"])
+                date_str     = row["activity_date"].strftime("%d %b")
+                hint         = _get_hint(row["name"], row["remarks"], row["category"])
+                quick        = _quick_line(row["name"], row["remarks"], row["category"], hint)
+                quick_block  = f"<div class='act-quick'>{quick}</div>" if quick else ""
                 status_label = {"OVERDUE": "Overdue"}.get(eff_status, eff_status.title())
 
-                card_parts = [
+                card_html = "".join([
                     f"<div class='act-card' style='{card_style}'>",
                     f"<div class='act-icon' style='background:{meta['bg']}'>{meta['icon']}</div>",
                     f"<div class='act-name'>{row['name']}</div>",
@@ -291,17 +303,15 @@ for tab_idx, tab in enumerate(tabs):
                     "<div class='act-spacer'></div>",
                     f"<div class='act-status status-{eff_status}'>{status_label}</div>",
                     "</div>",
-                ]
-                cards_html += "".join(card_parts)
-            cards_html += "</div>"
-            st.markdown(cards_html, unsafe_allow_html=True)
+                ])
 
-            # Real, functioning quick-action buttons live directly under each
-            # card (same column position), so the schedule stays scannable --
-            # no expander to open just to mark something done or see dosage.
-            action_cols = st.columns(len(items))
-            for col, row in zip(action_cols, items):
                 with col:
+                    # card-wrapper ties the card HTML and the button row
+                    # together inside one rounded, bordered container.
+                    st.markdown(
+                        f"<div class='card-wrapper'>{card_html}",
+                        unsafe_allow_html=True,
+                    )
                     b1, b2, b3 = st.columns(3)
                     if b1.button("✓", key=f"done_{tab_idx}_{row['id']}", help="Mark complete", use_container_width=True):
                         with session_scope() as session:
@@ -316,7 +326,21 @@ for tab_idx, tab in enumerate(tabs):
                                 schedule_repo.mark_skipped(session, act)
                         st.rerun()
                     if b3.button("ⓘ", key=f"info_{tab_idx}_{row['id']}", help="Details", use_container_width=True):
-                        show_activity_details(row, tab_idx)
+                        st.session_state[f"detail_{row['id']}"] = True
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+                    # Details expander shown inline when ⓘ is pressed
+                    if st.session_state.get(f"detail_{row['id']}"):
+                        parsed = _parse_remarks(row["remarks"])
+                        hint   = _get_hint(row["name"], row["remarks"], row["category"])
+                        with st.expander("📋 Details", expanded=True):
+                            if hint:
+                                st.markdown(f"**Product:** {hint['combo']}  \n**Dose:** {hint['dose']}  \n**Note:** {hint['note']}")
+                            for label, text in parsed.items():
+                                st.markdown(f"**{label}:** {text}")
+                            if st.button("Close", key=f"close_{tab_idx}_{row['id']}"):
+                                st.session_state[f"detail_{row['id']}"] = False
+                                st.rerun()
 
 # ── Add custom activity ────────────────────────────────────────────────────────
 st.divider()
