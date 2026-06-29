@@ -155,6 +155,197 @@ CROPS = [
             (107, ActivityCategory.OTHER, "Shelling & Drying", None, 1, "Shell cobs and dry grain to safe storage moisture."),
         ],
     },
+    {
+        # ---------------------------------------------------------------
+        # BHINDI (OKRA) -- commercial hybrid cultivation calendar.
+        #
+        # Modeled on how an experienced commercial grower actually runs a
+        # hybrid okra crop for a long, continuous picking window -- not a
+        # university practical schedule with one token "Harvest" row.
+        # Five things make this template different from the four above:
+        #
+        #   1. Harvest is NOT a single activity. First picking ~47 DAS,
+        #      then every 2 days through ~109 DAS (32 pickings total) via
+        #      one ActivityTemplate row with repeat_interval_days=2 -- the
+        #      schedule engine explodes this into 32 independently
+        #      completable ScheduleActivity rows automatically.
+        #   2. Continuous foliar nutrition every ~12 days through fruiting,
+        #      because continuous picking drains the plant fast.
+        #   3. A parallel "plant recovery" track, offset from the foliar
+        #      nutrition dates, focused specifically on rebuilding vigour
+        #      after repeated harvesting rather than routine feeding.
+        #   4. Fruit-quality-focused sprays (colour, size uniformity,
+        #      curvature, shelf life, marketability) -- distinct in intent
+        #      from the general nutrition/recovery tracks even though the
+        #      action (a foliar spray) looks similar.
+        #   5. Weekly pest/disease/stress monitoring (whitefly, jassids,
+        #      thrips, fruit borer, YVMV, powdery mildew, nutrient
+        #      deficiency, water stress) with an explicit prompt to
+        #      photograph the crop for AI analysis via Observations.
+        #
+        # Every remark below follows the same five-part structure so it
+        # reads well as-is AND gives services/ai_engine.py clean material
+        # to reason over later: Purpose. Benefit. Timing. Weather caution.
+        # Follow-up.
+        # ---------------------------------------------------------------
+        "name": "Bhindi (Okra)",
+        "description": "Commercial hybrid okra (Bhindi), direct-seeded, long continuous-picking cultivation.",
+        "default_duration_days": 115,
+        "stages": [
+            ("Land Preparation", 1, -10, -1, "Deep ploughing, FYM incorporation, and bed/ridge formation before sowing."),
+            ("Germination & Establishment", 2, 0, 10, "Seed germination and seedling establishment."),
+            ("Vegetative Growth", 3, 11, 24, "Vegetative growth and branching; root and canopy development."),
+            ("Flowering Initiation", 4, 25, 44, "Flower bud formation begins; nutrient demand starts rising."),
+            ("Peak Flowering & Fruit Set", 5, 45, 54, "Continuous flowering and fruit set begins; first pickings approach."),
+            ("Continuous Harvest & Fruiting", 6, 55, 113, "Extended commercial picking window with overlapping flowering, fruiting and harvest."),
+        ],
+        "activities": [
+            # --- Land preparation, sowing, establishment -----------------
+            (-10, ActivityCategory.LAND_PREPARATION, "Deep Ploughing & FYM Incorporation", None, 1,
+             "Purpose: Open up the soil and work in well-rotted FYM/compost. "
+             "Benefit: Improves root penetration, drainage and nutrient-holding capacity for the whole crop. "
+             "Timing: 10 days before sowing, while soil is workable. "
+             "Weather: Avoid working wet, waterlogged soil. "
+             "Follow-up: Level the field and form ridges/beds within 2-3 days."),
+            (-5, ActivityCategory.LAND_PREPARATION, "Ridge/Bed Formation & Basal Fertilizer", None, 1,
+             "Purpose: Form ridges or raised beds and place the basal NPK dose. "
+             "Benefit: Ensures good drainage, easy picking access later, and gives seedlings an early nutrient base. "
+             "Timing: 4-5 days before sowing. "
+             "Weather: Complete before any heavy rain to prevent ridge erosion. "
+             "Follow-up: Confirm spacing matches the hybrid's recommended plant population."),
+            (0, ActivityCategory.SOWING, "Seed Sowing - Hybrid Okra", None, 1,
+             "Purpose: Direct-sow treated hybrid seed at recommended spacing. "
+             "Benefit: Correct spacing now directly drives fruit size uniformity and ease of picking for the entire season. "
+             "Timing: Day of sowing (DAS 0). "
+             "Weather: Sow into adequate soil moisture; avoid sowing just before a heavy downpour that can cause crusting. "
+             "Follow-up: Check germination by DAS 6-7 and plan gap-filling."),
+            (5, ActivityCategory.IRRIGATION, "Irrigation - Germination Support", None, 1,
+             "Purpose: Keep the seed zone moist for uniform germination. "
+             "Benefit: Even germination means an even, easier-to-manage stand and fewer gaps to fill later. "
+             "Timing: Around DAS 5, light and frequent rather than heavy. "
+             "Weather: Skip or reduce if recent rainfall has kept soil moist. "
+             "Follow-up: Inspect germination percentage and mark patches needing gap-filling."),
+            (10, ActivityCategory.OTHER, "Thinning & Gap Filling", None, 1,
+             "Purpose: Remove weak/excess seedlings and fill visible gaps. "
+             "Benefit: Maintains the target plant population so light, nutrients and water are not wasted on overcrowded clumps. "
+             "Timing: DAS 10, once true leaves are visible. "
+             "Weather: Do this on a cooler day to reduce transplant shock for gap-filled seedlings. "
+             "Follow-up: Water lightly after thinning to settle remaining roots."),
+            (15, ActivityCategory.WEEDING, "First Weeding / Inter-culture", None, 1,
+             "Purpose: Remove early weed competition and lightly loosen the topsoil. "
+             "Benefit: Reduces competition for nutrients and water during the critical early vegetative push. "
+             "Timing: DAS 15, before weeds set seed. "
+             "Weather: Avoid weeding in waterlogged soil to prevent root damage. "
+             "Follow-up: Re-check for regrowth weekly until canopy closes."),
+            (18, ActivityCategory.IRRIGATION, "Irrigation Cycle - Vegetative Stage", 6, 4,
+             "Purpose: Maintain steady soil moisture through active vegetative growth. "
+             "Benefit: Consistent moisture (not flood-dry cycles) builds the strong root and branch framework that supports a long harvest window later. "
+             "Timing: Every ~6 days through the vegetative stage; adjust if rain falls. "
+             "Weather: Reduce frequency during rainy spells to avoid waterlogging and root rot. "
+             "Follow-up: Watch for wilting between cycles as a sign the interval is too long."),
+            (20, ActivityCategory.FERTILIZER, "1st Top Dressing - Nitrogen", None, 1,
+             "Purpose: Apply the first nitrogen split to fuel vegetative growth. "
+             "Benefit: Builds the canopy and branching framework needed to support heavy, continuous fruiting later. "
+             "Timing: DAS 20, just before the vegetative growth surge. "
+             "Weather: Apply to moist soil, ideally just before or after light irrigation, not in standing water. "
+             "Follow-up: Monitor leaf colour over the next week to gauge response."),
+
+            # --- Weekly crop-health monitoring (pest/disease/stress) -----
+            (21, ActivityCategory.SPRAY, "Weekly Crop Health Monitoring", 7, 13,
+             "Purpose: Walk the field and inspect leaves, undersides, flowers and fruit for whitefly, jassids, thrips, fruit borer, "
+             "Yellow Vein Mosaic Virus (YVMV) symptoms, powdery mildew, nutrient deficiency patterns and water stress. "
+             "Benefit: Catching pest, disease or nutrient problems in the first week of onset is far cheaper and more effective than treating an established outbreak. "
+             "Timing: Every 7 days, ideally in the cooler morning hours when pests are most visible on the underside of leaves. "
+             "Weather: Note recent rain/humidity, since whitefly and YVMV pressure and powdery mildew risk both rise in specific weather windows. "
+             "Follow-up: Capture images of affected and healthy leaves, flowers and fruit and log them as Observations for AI analysis; treat only if a threshold pest/disease is confirmed."),
+
+            # --- Flowering initiation, fertigation, foliar nutrition -----
+            (25, ActivityCategory.FERTILIZER, "2nd Top Dressing - Pre-Flowering", None, 1,
+             "Purpose: Apply nitrogen + potash split as flower bud formation begins. "
+             "Benefit: Supports strong, synchronized flowering, which is what eventually drives a high first-flush harvest. "
+             "Timing: DAS 25, at flower initiation. "
+             "Weather: Apply with adequate soil moisture; avoid during heavy rain to prevent runoff loss. "
+             "Follow-up: Track flower bud emergence over the following 5-7 days."),
+            (28, ActivityCategory.FERTILIZER, "Foliar Nutrition - Balanced NPK + Calcium", 12, 7,
+             "Purpose: Apply a balanced NPK foliar spray with added calcium through flowering and fruiting. "
+             "Benefit: Improves plant vigour, supports steady flowering and strengthens fruit cell walls for firmer, better-quality pods. "
+             "Timing: Every 10-15 days from pre-flowering through late fruiting (this cycle: every 12 days). "
+             "Weather: Spray during early morning or late evening; avoid spraying during high temperatures, bright sun or ahead of rainfall, which both reduce uptake and waste the spray. "
+             "Follow-up: Watch new flush of leaves and flowers for response; adjust to a micronutrient mixture if specific deficiency symptoms (yellowing, interveinal chlorosis) are observed instead of generic NPK."),
+            (30, ActivityCategory.WEEDING, "Second Weeding / Earthing Up", None, 1,
+             "Purpose: Final round of weeding and light earthing up before canopy closes. "
+             "Benefit: Keeps root competition low and improves plant anchorage against wind once the crop becomes top-heavy with fruit. "
+             "Timing: DAS 30, just before canopy closure makes inter-row access difficult. "
+             "Weather: Avoid in wet soil to prevent compaction and root injury. "
+             "Follow-up: After this point, rely on mulch/canopy shading rather than further inter-culture."),
+            (32, ActivityCategory.SPRAY, "Preventive Spray - Early Sucking Pest & Disease Check", None, 1,
+             "Purpose: Preventive spray targeting early aphid/jassid/whitefly buildup and early fungal leaf spots. "
+             "Benefit: Suppresses the vectors that spread Yellow Vein Mosaic Virus before flowering, when an outbreak would be most damaging. "
+             "Timing: DAS 32, just ahead of peak flowering. "
+             "Weather: Avoid spraying in windy conditions or ahead of rain. "
+             "Follow-up: Re-assess at the next weekly monitoring visit; escalate only if population crosses threshold."),
+
+            # --- Plant recovery / strength track (offset from foliar) ----
+            (34, ActivityCategory.FERTILIZER, "Plant Recovery & Strength Management", 12, 7,
+             "Purpose: Apply micronutrients, calcium and potassium-rich foliar feed aimed specifically at plant recovery rather than routine feeding. "
+             "Benefit: Continuous harvesting steadily removes nutrients from the plant; this recovery dose maintains vigour, supports new flower flushes and sustains fruit quality through a long picking season. "
+             "Timing: Every 10-15 days from late vegetative stage through the end of harvest (this cycle: every 12 days), timed to follow periods of heavy picking. "
+             "Weather: Spray in early morning or late evening; skip or delay if rain is expected within a few hours. "
+             "Follow-up: Do a quick plant health assessment after each application -- leaf colour, new flowering, fruit set -- and shorten the interval if plants show fatigue (pale leaves, reduced flowering, thin fruit)."),
+
+            # --- Fertigation / irrigation through reproductive phase -----
+            (38, ActivityCategory.FERTILIZER, "3rd Fertigation - Flowering Booster", None, 1,
+             "Purpose: Phosphorus + potassium-heavy fertigation to support flowering and early fruit set. "
+             "Benefit: Reduces flower drop and supports more fruit set per flush, directly raising total marketable yield. "
+             "Timing: DAS 38, during peak flowering. "
+             "Weather: Fertigate when soil is at field capacity, not during waterlogging. "
+             "Follow-up: Check fruit-set percentage on tagged branches over the following week."),
+            (40, ActivityCategory.IRRIGATION, "Irrigation Cycle - Flowering to Fruiting", 5, 14,
+             "Purpose: Maintain steady soil moisture through flowering and the entire harvest window. "
+             "Benefit: Even moisture prevents flower drop and fruit drop and keeps pods tender rather than fibrous -- critical for marketable quality. "
+             "Timing: Every ~5 days from flowering through the end of harvest; shorten the interval in hot, dry weather. "
+             "Weather: Suspend or skip a cycle if rainfall has already met crop water demand, to avoid waterlogging and root/fruit rot. "
+             "Follow-up: Check soil moisture at root depth before each cycle rather than irrigating on a fixed calendar alone."),
+
+            # --- Fruit-quality-focused sprays -----------------------------
+            (44, ActivityCategory.SPRAY, "Fruit Quality Management - Colour & Uniformity", 15, 5,
+             "Purpose: Apply a potassium-rich and micronutrient (boron, magnesium) foliar spray timed to the fruiting flush, specifically targeting fruit colour, size uniformity and reduced curvature. "
+             "Benefit: Improves pod colour and shape consistency, reduces curved/misshapen pods, and improves shelf life after picking -- all of which directly raise the price the produce fetches in the market. "
+             "Timing: Every 15 days from early fruiting through late harvest. "
+             "Weather: Spray in early morning or late evening; avoid hot, sunny conditions or rain within a few hours, both of which reduce leaf uptake. "
+             "Follow-up: Sample a few pods at the next harvest for colour, straightness and size, and note any improvement or deficiency symptom for the next AI/Observation review."),
+
+            # --- First harvest and the long picking cycle -----------------
+            (47, ActivityCategory.HARVEST, "First Harvest - Tender Pod Picking", None, 1,
+             "Purpose: First picking of tender okra pods, approximately 8-10 cm long. "
+             "Benefit: Picking at the correct tender stage (not overgrown/fibrous) is the single biggest driver of grade and price realized at market. "
+             "Timing: Approximately 45-50 DAS; pick in the morning while pods are firm and before the day heats up. "
+             "Weather: Avoid picking in wet conditions (rain/heavy dew) since wet handling encourages post-harvest rot and reduces shelf life. "
+             "Follow-up: Log the harvested quantity as Revenue against today's sale, and inspect plants for the next flush of flowers while picking."),
+            (49, ActivityCategory.HARVEST, "Harvest Cycle - Tender Pod Picking", 2, 31,
+             "Purpose: Continue picking tender pods (8-10 cm) every 2 days through the full harvest window. "
+             "Benefit: A strict 2-day picking interval is what commercial growers use to prevent pods from crossing into the fibrous, lower-grade stage -- missing even one cycle measurably drops quality and price. "
+             "Timing: Every 2 days from approximately 49 DAS through 100-110 DAS; always pick in the morning. "
+             "Weather: If heavy rain falls on a picking day, pick as soon as the field is walkable rather than skipping, since pods keep maturing regardless of weather. "
+             "Follow-up: Record each picking's quantity and sale as Revenue on the same day -- revenue entries should track the harvest calendar one-to-one rather than being batched up later."),
+
+            # --- Late-season fruit quality / shelf-life focus -------------
+            (60, ActivityCategory.SPRAY, "Fruit Quality Management - Shelf Life & Market Grade", 15, 4,
+             "Purpose: Calcium and potassium-focused foliar application aimed at firmer pod texture and longer post-harvest shelf life. "
+             "Benefit: Firmer, better-holding pods reduce rejection at the market and allow a one-day transport/storage buffer without quality loss. "
+             "Timing: Every 15 days from mid-harvest through late fruiting. "
+             "Weather: Apply in cooler parts of the day; avoid application right before expected rain. "
+             "Follow-up: Grade a sample of the next 2-3 harvests for firmness and note any softening or blemish patterns."),
+
+            # --- Continued plant health assessment late in the season ----
+            (70, ActivityCategory.OTHER, "Plant Health Assessment - Mid Harvest", 14, 4,
+             "Purpose: Walk-through assessment of overall plant vigour, leaf health, flowering rate and fruit load after repeated harvesting. "
+             "Benefit: Confirms whether nutrition and recovery sprays are keeping pace with the demands of continuous picking, so adjustments can be made before yield actually drops. "
+             "Timing: Every 14 days from mid-harvest onward. "
+             "Weather: Conduct on a dry day for an accurate read on leaf condition (wet foliage can mask early disease/deficiency signs). "
+             "Follow-up: If vigour is declining, shorten the foliar nutrition/recovery interval and capture photos as an Observation for AI review."),
+        ],
+    },
 ]
 
 
