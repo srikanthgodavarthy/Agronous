@@ -68,6 +68,52 @@ PRODUCT_HINTS = {
     "pod quality spray - potassium nitrate": {"dose": "5 g/L", "combo": "Potassium Nitrate (NOP 13:00:45 / SOP)", "note": "Improves pod size, colour, shelf life and market quality."},
 }
 
+import re
+
+REMARK_LABELS = ["Purpose", "Benefit", "Timing", "Weather", "Follow-up"]
+
+
+def _parse_remarks(remarks: str) -> dict[str, str]:
+    """
+    Split a structured remarks string like
+    'Purpose: ... Benefit: ... Timing: ... Weather: ... Follow-up: ...'
+    into a dict keyed by label. Falls back gracefully (everything under
+    'Notes') for custom/free-text remarks that don't follow this shape.
+    """
+    if not remarks:
+        return {}
+    pattern = r"(" + "|".join(REMARK_LABELS) + r"):\s*"
+    parts = re.split(pattern, remarks)
+    if len(parts) <= 1:
+        return {"Notes": remarks.strip()}
+    out: dict[str, str] = {}
+    # re.split with a capturing group returns [pre, label, text, label, text, ...]
+    it = iter(parts[1:])
+    for label, text in zip(it, it):
+        out[label] = text.strip()
+    if parts[0].strip():
+        out["Notes"] = parts[0].strip()
+    return out
+
+
+def _quick_line(name: str, remarks: str, category: str | None, hint: dict | None) -> str:
+    """
+    One short line that belongs ON the card itself -- the dosage/product if
+    there is one, otherwise a trimmed Purpose clause, so a farmer never has
+    to open Details just to see what to do today.
+    """
+    if hint:
+        return f"{hint['combo']} · {hint['dose']}"
+    parsed = _parse_remarks(remarks)
+    purpose = parsed.get("Purpose") or parsed.get("Notes") or ""
+    if not purpose:
+        return ""
+    first_clause = purpose.split(".")[0].strip()
+    if len(first_clause) > 70:
+        first_clause = first_clause[:67].rstrip() + "..."
+    return first_clause
+
+
 def _get_hint(name: str, remarks: str, category: str | None = None) -> dict | None:
     # Product hints only ever apply to actual spray/fertilizer applications.
     # Monitoring, harvest, irrigation and weeding remarks legitimately
@@ -135,6 +181,19 @@ st.markdown("""
     width: 100%; box-sizing: border-box;
 }
 .act-product .dose { font-weight: 400; color: #6a5a98; }
+.act-quick {
+    font-size: 10px; color: #4a4a4a; text-align: center; line-height: 1.4;
+    background: rgba(0,0,0,0.035); border-radius: 6px; padding: 3px 6px;
+    width: 100%; box-sizing: border-box;
+}
+.act-status {
+    font-size: 9px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    border-radius: 8px; padding: 2px 8px; margin-top: 2px;
+}
+.status-PENDING   { background: #fdf0cf; color: #8a6512; }
+.status-COMPLETED { background: #d9f0e2; color: #1c6b41; }
+.status-SKIPPED   { background: #e6e5e1; color: #6b6a63; }
+.status-OVERDUE   { background: #fadcdc; color: #a32f2f; }
 .act-spacer { flex: 1; }
 .act-btns { display: flex; gap: 8px; justify-content: center; }
 .act-btn {
@@ -206,7 +265,11 @@ for tab_idx, tab in enumerate(tabs):
 
             st.markdown(f"<div class='week-pill'>📅 {wlabel}</div>", unsafe_allow_html=True)
 
-            # Build portrait cards HTML
+            # Build portrait cards HTML -- the card itself is now the
+            # complete picture (icon, name, date/DAS, key dosage, status).
+            # No separate accordion/detail row is rendered below it; that
+            # information moved into the ⓘ Details dialog triggered by the
+            # button row rendered right under each card.
             cards_html = "<div class='cards-row'>"
             for row in items:
                 eff_status = _effective_status(row, today)
@@ -214,74 +277,46 @@ for tab_idx, tab in enumerate(tabs):
                 meta        = CATEGORY_META.get(row["category"], CATEGORY_META["OTHER"])
                 date_str    = row["activity_date"].strftime("%d %b")
                 hint        = _get_hint(row["name"], row["remarks"], row["category"])
+                quick       = _quick_line(row["name"], row["remarks"], row["category"], hint)
 
-                product_block = ""
-                if hint and row["category"] in ("FERTILIZER", "SPRAY"):
-                    product_block = f"<div class='act-product'>{hint['combo']}<br><span class='dose'>{hint['dose']}</span></div>"
+                quick_block = f"<div class='act-quick'>{quick}</div>" if quick else ""
+                status_label = {"OVERDUE": "Overdue"}.get(eff_status, eff_status.title())
 
-                # Joined with no newlines between parts -- a bare indented blank
-                # line inside an unsafe_allow_html block gets treated by the
-                # markdown parser as an indented code block, which silently
-                # breaks rendering for every card after it. Concatenating
-                # strings directly (vs. an f-string with embedded line breaks)
-                # avoids that trap entirely.
                 card_parts = [
                     f"<div class='act-card' style='{card_style}'>",
                     f"<div class='act-icon' style='background:{meta['bg']}'>{meta['icon']}</div>",
                     f"<div class='act-name'>{row['name']}</div>",
-                    f"<div class='act-meta'>{date_str}<br>DAS {row['das']}<br>{meta['label']}</div>",
-                    product_block,
+                    f"<div class='act-meta'>{date_str} · DAS {row['das']}<br>{meta['label']}</div>",
+                    quick_block,
                     "<div class='act-spacer'></div>",
-                    "<div class='act-btns'>",
-                    "<span class='act-btn btn-done' title='Mark done'>✓</span>",
-                    "<span class='act-btn btn-skip' title='Skip'>⏭</span>",
-                    "</div>",
+                    f"<div class='act-status status-{eff_status}'>{status_label}</div>",
                     "</div>",
                 ]
                 cards_html += "".join(card_parts)
             cards_html += "</div>"
             st.markdown(cards_html, unsafe_allow_html=True)
 
-            # Native Streamlit action forms for each card (hidden under expander)
-            for row in items:
-                eff_status = _effective_status(row, today)
-                hint = _get_hint(row["name"], row["remarks"], row["category"])
-                with st.expander(f"⚙ {row['name']}", expanded=False):
-                    with st.form(f"manage_{tab_idx}_{row['id']}"):
-                        new_date    = st.date_input("Completion date", value=row["activity_date"], key=f"d_{tab_idx}_{row['id']}")
-                        new_remarks = st.text_area("Remarks", value=row["remarks"], key=f"r_{tab_idx}_{row['id']}", height=60)
-                        sc, cc, skc = st.columns(3)
-                        save     = sc.form_submit_button("💾 Save")
-                        complete = cc.form_submit_button("✅ Done")
-                        skip     = skc.form_submit_button("⏭ Skip")
-
-                        if save or complete or skip:
-                            with session_scope() as session:
-                                act = schedule_repo.get_activity(session, row["id"])
-                                if act:
-                                    schedule_repo.update_activity(session, act, activity_date=new_date, remarks=new_remarks or None)
-                                    if complete:
-                                        schedule_repo.mark_complete(session, act)
-                                    elif skip:
-                                        schedule_repo.mark_skipped(session, act)
-                            st.rerun()
-
-                    if row["status"] != "PENDING":
-                        if st.button("↩ Reopen", key=f"reopen_{tab_idx}_{row['id']}"):
-                            with session_scope() as session:
-                                act = schedule_repo.get_activity(session, row["id"])
-                                schedule_repo.reopen(session, act)
-                            st.rerun()
-
-                    if row["is_custom"]:
-                        if st.button("🗑 Delete", key=f"delete_{tab_idx}_{row['id']}"):
-                            with session_scope() as session:
-                                act = schedule_repo.get_activity(session, row["id"])
-                                schedule_repo.delete_activity(session, act)
-                            st.rerun()
-
-                    if hint and row["category"] in ("FERTILIZER", "SPRAY"):
-                        st.caption(f"📦 {hint['combo']} · {hint['dose']} · {hint['note']}")
+            # Real, functioning quick-action buttons live directly under each
+            # card (same column position), so the schedule stays scannable --
+            # no expander to open just to mark something done or see dosage.
+            action_cols = st.columns(len(items))
+            for col, row in zip(action_cols, items):
+                with col:
+                    b1, b2, b3 = st.columns(3)
+                    if b1.button("✓", key=f"done_{tab_idx}_{row['id']}", help="Mark complete", use_container_width=True):
+                        with session_scope() as session:
+                            act = schedule_repo.get_activity(session, row["id"])
+                            if act:
+                                schedule_repo.mark_complete(session, act)
+                        st.rerun()
+                    if b2.button("⏭", key=f"skip_{tab_idx}_{row['id']}", help="Skip", use_container_width=True):
+                        with session_scope() as session:
+                            act = schedule_repo.get_activity(session, row["id"])
+                            if act:
+                                schedule_repo.mark_skipped(session, act)
+                        st.rerun()
+                    if b3.button("ⓘ", key=f"info_{tab_idx}_{row['id']}", help="Details", use_container_width=True):
+                        show_activity_details(row, tab_idx)
 
 # ── Add custom activity ────────────────────────────────────────────────────────
 st.divider()
