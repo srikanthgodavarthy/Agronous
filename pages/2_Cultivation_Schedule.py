@@ -17,32 +17,25 @@ from services.schedule_engine import calculate_das, current_stage_name
 st.set_page_config(page_title="Cultivation Schedule", page_icon="🌿", layout="wide")
 
 CATEGORY_META = {
-    "IRRIGATION":       {"icon": "💧", "accent": "#2E78B7", "soft": "#E4F0FA", "tint": "#F2F8FD", "label": "Irrigation"},
-    "FERTILIZER":       {"icon": "🌱", "accent": "#2F8F4E", "soft": "#DEF2E5", "tint": "#F1FAF4", "label": "Fertilizer"},
-    "SPRAY":            {"icon": "🧴", "accent": "#9B3FB5", "soft": "#F1E1F7", "tint": "#FAF2FC", "label": "Spray / Pest"},
-    "WEEDING":          {"icon": "🌾", "accent": "#C2700E", "soft": "#F8E7CC", "tint": "#FCF4E7", "label": "Weeding"},
-    "LAND_PREPARATION": {"icon": "🚜", "accent": "#8A5A2B", "soft": "#EFE0CE", "tint": "#F8F1E7", "label": "Land Prep"},
-    "SOWING":           {"icon": "🌰", "accent": "#3E8E4F", "soft": "#E0F2E3", "tint": "#F2FAF3", "label": "Sowing"},
-    "HARVEST":          {"icon": "🌾", "accent": "#B68A0E", "soft": "#F7EAC4", "tint": "#FCF6E3", "label": "Harvest"},
-    "OTHER":            {"icon": "📋", "accent": "#5B6470", "soft": "#E6E8EB", "tint": "#F4F5F6", "label": "Other"},
+    "IRRIGATION":       {"icon": "💧", "accent": "#2E78B7", "soft": "#EAF3FB", "label": "Irrigation"},
+    "FERTILIZER":       {"icon": "🌱", "accent": "#2F8F4E", "soft": "#EAF7EE", "label": "Fertilizer"},
+    "SPRAY":            {"icon": "🧴", "accent": "#9B3FB5", "soft": "#F6ECFA", "label": "Spray / Pest"},
+    "WEEDING":          {"icon": "🌾", "accent": "#C2700E", "soft": "#FBF1E4", "label": "Weeding"},
+    "LAND_PREPARATION": {"icon": "🚜", "accent": "#8A5A2B", "soft": "#F4ECE2", "label": "Land Prep"},
+    "SOWING":           {"icon": "🌰", "accent": "#3E8E4F", "soft": "#ECF7EE", "label": "Sowing"},
+    "HARVEST":          {"icon": "🌾", "accent": "#B68A0E", "soft": "#FAF4E1", "label": "Harvest"},
+    "OTHER":            {"icon": "📋", "accent": "#5B6470", "soft": "#EFF1F3", "label": "Other"},
 }
 
 # Cards that need an urgent, can't-miss "what to apply" badge on the face —
 # this is the #1 thing a farmer needs to act on without tapping in.
 ACTIONABLE_CATS = {"SPRAY", "FERTILIZER"}
 
-# Status no longer controls card background (category color owns that now).
-# It only controls a subtle outer ring + the status pill, so OVERDUE still
-# reads as urgent and SKIPPED/COMPLETED still read as "done with", without
-# fighting the category color-coding.
-STATUS_RING = {
-    "PENDING":   "rgba(30,25,15,0.08)",
-    "COMPLETED": "rgba(31,122,65,0.35)",
-    "SKIPPED":   "rgba(30,25,15,0.08)",
-    "OVERDUE":   "#D8503A",
-}
-STATUS_OPACITY = {
-    "PENDING": "1", "COMPLETED": "1", "SKIPPED": "0.6", "OVERDUE": "1",
+STATUS_CARD_STYLE = {
+    "PENDING":   "background:#FFFFFF; border-color:#EDE6D6;",
+    "COMPLETED": "background:#FBFCFA; border-color:#D8E9DD;",
+    "SKIPPED":   "background:#FAFAF9; border-color:#E5E3DD;",
+    "OVERDUE":   "background:#FFFBFA; border-color:#F0C4BC;",
 }
 
 PRODUCT_HINTS = {
@@ -181,36 +174,11 @@ html, body, [class*="css"] { font-family: 'Inter', -apple-system, sans-serif; }
 }
 .stage-line b { color: #2F5F45; font-weight: 700; }
 
-/* ── Equal-height cards across a row ──────────────────────────────────
-   Streamlit columns don't stretch by default, so a tall "spray" card
-   with a badge sits next to a short irrigation card and the action
-   buttons end up at different heights. Force every column in a row,
-   and every block inside it, to stretch to the row's tallest card. */
-div[data-testid="stHorizontalBlock"] {
-    align-items: stretch !important;
-}
-div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-    display: flex !important;
-    flex-direction: column !important;
-}
-div[data-testid="column"] > div[data-testid="stVerticalBlock"] {
-    flex: 1 1 auto;
-    display: flex; flex-direction: column;
-    height: 100%;
-}
-div[data-testid="stVerticalBlockBorderWrapper"]:has(.act-card) {
-    flex: 1 1 auto; display: flex; flex-direction: column;
-    height: 100%; border-radius: 14px !important;
-}
-div[data-testid="stVerticalBlockBorderWrapper"]:has(.act-card) > div {
-    flex: 1 1 auto; display: flex; flex-direction: column; height: 100%;
-}
-
-/* ── Card shell — tinted by category, not just accented ──────────────── */
+/* ── Card shell ─────────────────────────────────────────────────────── */
 .act-card {
     border-radius: 14px; padding: 0;
-    display: flex; flex-direction: column; flex: 1 1 auto;
-    border: 1.5px solid transparent;
+    display: flex; flex-direction: column;
+    border: 1px solid transparent;
     min-height: 150px; position: relative; box-sizing: border-box;
     box-shadow: 0 1px 2px rgba(30,25,15,0.04), 0 4px 14px rgba(30,25,15,0.05);
 }
@@ -221,24 +189,22 @@ div[data-testid="stVerticalBlockBorderWrapper"]:has(.act-card) > div {
 .act-icon {
     flex: none; width: 36px; height: 36px; border-radius: 9px; font-size: 17px;
     display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 1px 3px rgba(30,25,15,0.08);
 }
 .act-name {
     font-size: 13px; font-weight: 700; color: #221F18;
     line-height: 1.3; padding-top: 3px;
 }
 .act-meta {
-    font-size: 10.5px; color: #756F60; line-height: 1.5; font-weight: 500;
+    font-size: 10.5px; color: #9A9485; line-height: 1.5; font-weight: 500;
 }
 .act-cat-tag {
-    font-size: 9.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+    font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
 }
 
-/* ── The "what to apply" badge — solid accent fill, can't-miss ───────── */
+/* ── The "what to apply" badge — bold, always visible, top priority ── */
 .act-action-badge {
     margin: 10px 14px 0 14px; border-radius: 9px;
     padding: 8px 10px; box-sizing: border-box;
-    color: #FFFFFF;
 }
 .act-action-badge .tag {
     font-size: 8.5px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase;
@@ -248,16 +214,16 @@ div[data-testid="stVerticalBlockBorderWrapper"]:has(.act-card) > div {
     font-size: 12px; font-weight: 700; line-height: 1.35;
 }
 .act-action-badge .dose {
-    font-size: 11px; font-weight: 600; opacity: 0.9; margin-top: 1px;
+    font-size: 11px; font-weight: 600; opacity: 0.85; margin-top: 1px;
 }
 
 .act-objective {
-    font-size: 10.5px; color: #5E594C; text-align: left; line-height: 1.45;
+    font-size: 10.5px; color: #6B6456; text-align: left; line-height: 1.45;
     padding: 8px 14px 0 14px;
 }
 .act-objective b {
     display: block; font-size: 9px; letter-spacing: 0.05em; text-transform: uppercase;
-    color: #8C8676; margin-bottom: 2px; font-weight: 800;
+    color: #9A9485; margin-bottom: 2px; font-weight: 700;
 }
 .act-spacer { flex: 1; min-height: 8px; }
 .act-status-row { display: flex; justify-content: flex-end; padding: 0 14px 12px 14px; }
@@ -269,10 +235,10 @@ div[data-testid="stVerticalBlockBorderWrapper"]:has(.act-card) > div {
 .act-status::before {
     content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor;
 }
-.status-PENDING   { background: rgba(255,255,255,0.6); color: #966B0C; }
-.status-COMPLETED { background: rgba(255,255,255,0.7); color: #1F7A41; }
-.status-SKIPPED   { background: rgba(255,255,255,0.6); color: #79766C; }
-.status-OVERDUE   { background: #FFFFFF; color: #C13E2A; }
+.status-PENDING   { background: #FCF3DD; color: #966B0C; }
+.status-COMPLETED { background: #E1F2E6; color: #1F7A41; }
+.status-SKIPPED   { background: #EEEDE8; color: #79766C; }
+.status-OVERDUE   { background: #FBE3DF; color: #C13E2A; }
 
 /* ── card-wrapper: card + buttons share the same rounded shell ── */
 .card-wrapper {
