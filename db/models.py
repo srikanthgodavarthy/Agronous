@@ -136,6 +136,56 @@ class ObservationSource(str, enum.Enum):
         return self.name.title()
 
 
+class TriggerCondition(str, enum.Enum):
+    """
+    Closed vocabulary the Decision Engine matches against a season's live
+    CultivationContext. Specific pest/disease identities (not generic
+    "PEST_DETECTED") so the evaluator never has to re-classify a vague tag
+    -- the AI vision prompt and the trigger vocabulary use the same names.
+    Stage and pest/disease evidence are independent condition families,
+    never conflated in one assessment row.
+    """
+    # Stage-based -- pure DAS/CropStage lookup, cheapest to evaluate
+    STAGE_VEGETATIVE = "STAGE_VEGETATIVE"
+    STAGE_FLOWERING = "STAGE_FLOWERING"
+    STAGE_FRUITING = "STAGE_FRUITING"
+    STAGE_HARVEST = "STAGE_HARVEST"
+
+    # Pest identity -- specific, not generic, populated from a Layer 1.5
+    # assessment's Observation.ai_category / farmer note
+    PEST_CUTWORM_DAMPING_OFF = "PEST_CUTWORM_DAMPING_OFF"
+    PEST_APHID_WHITEFLY_VECTOR = "PEST_APHID_WHITEFLY_VECTOR"
+    PEST_FRUIT_SHOOT_BORER = "PEST_FRUIT_SHOOT_BORER"
+    PEST_MITE_WHITEFLY = "PEST_MITE_WHITEFLY"
+    PEST_SUCKING_COMPLEX = "PEST_SUCKING_COMPLEX"  # thrips/jassids/whitefly bundle
+
+    # Disease identity -- specific
+    DISEASE_POWDERY_MILDEW = "DISEASE_POWDERY_MILDEW"
+    DISEASE_CERCOSPORA_LEAF_SPOT = "DISEASE_CERCOSPORA_LEAF_SPOT"
+    DISEASE_YVMV = "DISEASE_YVMV"
+    DISEASE_AGEING_CANOPY = "DISEASE_AGEING_CANOPY"  # late-stage generic watch; the
+    # original card text itself is generic ("as needed"), so this stays broad
+
+    # Nutrient deficiency identity -- specific
+    DEFICIENCY_MAGNESIUM = "DEFICIENCY_MAGNESIUM"
+    DEFICIENCY_IRON = "DEFICIENCY_IRON"
+    DEFICIENCY_POD_TIP_CALCIUM = "DEFICIENCY_POD_TIP_CALCIUM"
+
+    # Weather-derived -- reads a future weather service integration
+    RAIN_FORECAST = "RAIN_FORECAST"
+    HOT_DRY_SPELL = "HOT_DRY_SPELL"
+    HIGH_HUMIDITY = "HIGH_HUMIDITY"
+
+    @property
+    def label(self) -> str:
+        return self.name.replace("_", " ").title()
+
+
+class TriggerLogic(str, enum.Enum):
+    ALL = "ALL"  # every condition in trigger_conditions must hold (AND)
+    ANY = "ANY"  # at least one condition must hold (OR)
+
+
 # ---------------------------------------------------------------------------
 # MASTER DATA -- the "Crop Master Template" engine (versioned)
 # ---------------------------------------------------------------------------
@@ -275,6 +325,42 @@ class ActivityTemplate(Base):
     default_remarks: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
+    # --- Layer 1.5 / Layer 2 fields (decision-oriented advisory engine) ---
+    is_conditional: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # True  -> Layer 2: never auto-materializes at season creation; the
+    #          Decision Engine (services/decision_engine.py) materializes it
+    #          only when trigger_conditions are satisfied by evidence.
+    # False -> Layer 1 or Layer 1.5 (the default, and the only value every
+    #          pre-v3 row has -- zero behavior change for past seasons).
+
+    feeds_context: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # True on Layer 1.5 rows only: this activity is always scheduled and
+    # completed like any Layer 1 row, but its purpose is to produce
+    # structured evidence (an Observation tied to it) that the Decision
+    # Engine reads, rather than to perform a corrective operation itself.
+    # False for ordinary Layer 1 operations and for Layer 2 rows.
+
+    trigger_logic: Mapped["TriggerLogic | None"] = mapped_column(
+        Enum(TriggerLogic, name="trigger_logic", native_enum=False, length=10), nullable=True
+    )
+    trigger_conditions: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    # JSONB list of TriggerCondition.value strings, e.g.
+    # ["PEST_FRUIT_SHOOT_BORER", "STAGE_VEGETATIVE"] with trigger_logic=ALL.
+    # A list column, not a join table: trigger sets are small (1-3
+    # conditions), always read as a whole by the evaluator, never queried
+    # independently at the SQL level today. Composite rules are supported
+    # from day one without any further schema change -- just more list
+    # entries.
+    #
+    # NOTE -- growth path: if conditional logic grows substantially richer
+    # (e.g. numeric thresholds, time-windowed evidence decay, multi-step
+    # rule chains, per-farm overrides), introduce a dedicated `DecisionRule`
+    # entity (its own table, FK'd from ActivityTemplate) rather than
+    # continuing to bolt more columns onto ActivityTemplate. The current
+    # trigger_logic/trigger_conditions pair is intentionally the simplest
+    # thing that works for closed-vocabulary AND/OR matching; it is not
+    # meant to grow into a general rule engine in place.
+
     version: Mapped["CropTemplateVersion"] = relationship(back_populates="activity_templates")
 
 
@@ -375,6 +461,24 @@ class ScheduleActivity(Base):
     is_custom: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    # --- Provenance for Layer 2 (Decision Engine-materialized) activities ---
+    # Both NULL for every ordinary Layer 1-generated or user-added custom
+    # activity. Populated only when services.decision_engine.evaluate_and_activate
+    # materializes a Layer 2 ActivityTemplate, so a farmer (or support) can
+    # always answer "why did this show up on my schedule?" without guessing.
+    triggered_by_condition: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # The specific TriggerCondition.value that satisfied this row's trigger
+    # (for ANY logic with multiple satisfied conditions, the first matched;
+    # the full required set is still recoverable from the template).
+    triggered_by_observation_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("observation.id", ondelete="SET NULL"), nullable=True
+    )
+    # The specific Observation row whose evidence (ai_category / farmer note)
+    # produced the matched condition, where the trigger came from an
+    # observation rather than a pure stage lookup. Nullable because
+    # stage-only triggers (e.g. STAGE_FLOWERING) have no originating
+    # Observation to point to.
 
     season: Mapped["Season"] = relationship(back_populates="activities")
 
