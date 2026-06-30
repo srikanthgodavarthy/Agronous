@@ -72,3 +72,9 @@ def update_season_status(session: Session, season: Season, status: SeasonStatus)
     season.status = status
     session.flush()
     return season
+
+
+def delete_season(session: Session, season: Season) -> None:
+    """Deletes a season and (via cascade) its activities, expenses, revenues,
+    observations, and alerts."""
+    session.delete(season)
