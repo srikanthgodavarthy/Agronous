@@ -70,7 +70,7 @@ PRODUCT_HINTS = {
 
 import re
 
-REMARK_LABELS = ["Purpose", "Benefit", "Timing", "Weather", "Follow-up"]
+REMARK_LABELS = ["Product", "Composition", "Dose", "Water", "Method", "Timing", "Objective", "Why", "Precautions", "Purpose", "Benefit", "Notes"]
 
 
 def _parse_remarks(remarks: str) -> dict[str, str]:
@@ -98,14 +98,18 @@ def _parse_remarks(remarks: str) -> dict[str, str]:
 
 def _quick_line(name: str, remarks: str, category: str | None, hint: dict | None) -> str:
     """
-    One short line that belongs ON the card itself -- the dosage/product if
-    there is one, otherwise a trimmed Purpose clause, so a farmer never has
-    to open Details just to see what to do today.
+    One short line shown on the card face.
+    New card format: Product + Dose from structured remarks.
+    Falls back to PRODUCT_HINTS, then Purpose clause for legacy/custom activities.
     """
+    parsed = _parse_remarks(remarks)
+    product  = parsed.get("Product", "")
+    dose     = parsed.get("Dose", "")
+    if product and dose:
+        return f"{product} · {dose}"
     if hint:
         return f"{hint['combo']} · {hint['dose']}"
-    parsed = _parse_remarks(remarks)
-    purpose = parsed.get("Purpose") or parsed.get("Notes") or ""
+    purpose = parsed.get("Objective") or parsed.get("Purpose") or parsed.get("Notes") or ""
     if not purpose:
         return ""
     first_clause = purpose.split(".")[0].strip()
@@ -334,25 +338,42 @@ for tab_idx, tab in enumerate(tabs):
                             st.session_state[detail_key] = not st.session_state.get(detail_key, False)
                             st.rerun()
 
-                    # Details panel toggled by ⓘ, shown below the card.
-                    # Purpose/Notes are already visible on the card as the
-                    # quick-line, so they are intentionally excluded here.
+                    # Details panel — full emoji card shown below when ⓘ tapped.
                     if st.session_state.get(f"detail_{row['id']}"):
                         parsed = _parse_remarks(row["remarks"])
                         hint   = _get_hint(row["name"], row["remarks"], row["category"])
-                        shown_on_card = {"Purpose", "Notes"}
-                        extra = {k: v for k, v in parsed.items() if k not in shown_on_card}
-                        if hint or extra:
-                            with st.container(border=True):
-                                st.caption("📋 Details")
-                                if hint:
-                                    st.markdown(
-                                        f"**Product:** {hint['combo']}  \n"
-                                        f"**Dose:** {hint['dose']}  \n"
-                                        f"**Note:** {hint['note']}"
-                                    )
-                                for label, text in extra.items():
-                                    st.markdown(f"**{label}:** {text}")
+
+                        # Build display values — prefer new structured fields,
+                        # fall back to PRODUCT_HINTS for legacy/custom activities.
+                        product     = parsed.get("Product") or (hint["combo"] if hint else "")
+                        composition = parsed.get("Composition", "")
+                        dose        = parsed.get("Dose") or (hint["dose"] if hint else "")
+                        water       = parsed.get("Water", "")
+                        timing      = parsed.get("Timing", "")
+                        objective   = parsed.get("Objective") or parsed.get("Benefit", "")
+                        why         = parsed.get("Why") or parsed.get("Purpose", "")
+                        precautions = parsed.get("Precautions") or (hint["note"] if hint else "")
+
+                        with st.container(border=True):
+                            lines = []
+                            if product:
+                                lines.append(f"🧪 **Product**  \n{product}" + (f" ({composition})" if composition else ""))
+                            if dose:
+                                lines.append(f"📦 **Dose**  \n{dose}")
+                            if water:
+                                lines.append(f"💧 **Water**  \n{water}")
+                            if timing:
+                                lines.append(f"⏰ **Timing**  \n{timing}")
+                            if objective:
+                                lines.append(f"🎯 **Objective**  \n{objective}")
+                            st.markdown("  \n\n".join(lines))
+
+                            if why or precautions:
+                                with st.expander("📖 View Why"):
+                                    if why:
+                                        st.markdown(f"**Why this matters:**  \n{why}")
+                                    if precautions:
+                                        st.markdown(f"**⚠️ Precautions:**  \n{precautions}")
 
 # ── Add custom activity ────────────────────────────────────────────────────────
 st.divider()
