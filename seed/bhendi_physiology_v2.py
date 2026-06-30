@@ -54,20 +54,23 @@ def _card(
     benefit: str,
     precautions: str,
 ) -> str:
-    """Render one full Agronous recommendation card as structured text."""
-    parts = [
-        f"Category: {category}.",
-        f"Product: {product}.",
-    ]
+    """
+    Render one Agronous recommendation card as structured text.
+
+    Field labels are parsed by _parse_remarks() in pages/2_Cultivation_Schedule.py
+    to render the emoji card UI:
+        Product / Composition / Dose / Water / Method / Timing / Objective / Why / Precautions
+    """
+    parts = [f"Product: {product}."]
     if composition:
         parts.append(f"Composition: {composition}.")
-    parts.append(f"Dosage: {dosage}.")
+    parts.append(f"Dose: {dosage}.")
     if water_volume:
-        parts.append(f"Water Volume: {water_volume}.")
+        parts.append(f"Water: {water_volume}.")
     parts.append(f"Method: {method}.")
-    parts.append(f"Best Timing: {timing}.")
-    parts.append(f"Purpose: {purpose}")
-    parts.append(f"Expected Benefit: {benefit}")
+    parts.append(f"Timing: {timing}.")
+    parts.append(f"Objective: {benefit}")
+    parts.append(f"Why: {purpose}")
     parts.append(f"Precautions: {precautions}")
     return " ".join(parts)
 
@@ -136,8 +139,8 @@ STAGES = [
     (
         "Fruit Development",
         6,
-        56,
-        62,
+        46,
+        51,
         "Plant Need: drive cell division then cell expansion in the pod, "
         "move carbohydrate to the developing sink, sustain consistent "
         "moisture so pods do not turn fibrous. Observe: uniform pod sizing, "
@@ -148,7 +151,7 @@ STAGES = [
     (
         "Peak Harvest",
         7,
-        63,
+        52,
         90,
         "Plant Need: sustain continuous flowering alongside fruiting (a "
         "high-demand dual load), replenish potassium removed by every "
@@ -491,7 +494,7 @@ ACTIVITIES = [
     # =================================================================
     (56, ActivityCategory.IRRIGATION, "Drive Cell Expansion - Consistent Irrigation", None, 1, _card(
         category="Irrigation", product="Furrow/Drip Irrigation", dosage="Maintain consistent soil moisture",
-        method="Furrow or drip, monitor daily", timing="DAS 56-62, daily check",
+        method="Furrow or drip, monitor daily", timing="DAS 46-51, daily check",
         purpose="Pod growth proceeds through cell division then cell expansion (water "
                 "uptake into the cell vacuole); irregular moisture during the expansion "
                 "phase produces curved, fibrous, or undersized pods rather than smooth uniform ones.",
@@ -540,7 +543,7 @@ ACTIVITIES = [
     # =================================================================
     # STAGE 7 -- PEAK HARVEST (DAS 63-90)
     # =================================================================
-    (63, ActivityCategory.HARVEST, "Maximize Marketable Yield - Tender Pod Picking", 2, 14, _card(
+    (52, ActivityCategory.HARVEST, "Maximize Marketable Yield - Tender Pod Picking", 2, 14, _card(
         category="Crop Operation", product="Hand Harvest", dosage="Pick pods at 7-9 cm length",
         method="Clean knife or scissors, every 2-3 days", timing="Morning, dry conditions",
         purpose="Pod tenderness and marketable grade decline rapidly past the 7-9 cm window "
@@ -550,16 +553,16 @@ ACTIVITIES = [
         precautions="Avoid picking in wet conditions -- wet handling encourages post-harvest rot. "
                     "Log harvested quantity as Revenue against the sale date.",
     )),
-    (63, ActivityCategory.IRRIGATION, "Sustain Dual Flowering-Fruiting Load - Regular Irrigation", 6, 5, _card(
+    (52, ActivityCategory.IRRIGATION, "Sustain Dual Flowering-Fruiting Load - Regular Irrigation", 6, 5, _card(
         category="Irrigation", product="Furrow/Drip Irrigation", dosage="Every 5-6 days if no rain",
-        method="Furrow or drip", timing="DAS 63-90, check soil moisture before each cycle",
+        method="Furrow or drip", timing="DAS 52-90, check soil moisture before each cycle",
         purpose="The plant is simultaneously flowering and fruiting through peak harvest, "
                 "roughly doubling its concurrent water demand compared to a single-phase crop; "
                 "any shortfall shows up as both reduced new fruit set and smaller existing pods.",
         benefit="Sustains pod development now that continuous harvesting has begun.",
         precautions="Adjust for rainfall; do not let soil dry fully between cycles.",
     )),
-    (65, ActivityCategory.FERTILIZER, "Replenish Potassium Removed by Picking - Top Dressing #3", None, 1, _card(
+    (54, ActivityCategory.FERTILIZER, "Replenish Potassium Removed by Picking - Top Dressing #3", None, 1, _card(
         category="Top Dressing", product="Muriate of Potash (MOP)", composition="0:0:60",
         dosage="25 kg/acre", method="Band placement, irrigate after", timing="Morning, before irrigation",
         purpose="Every harvested pod physically removes potassium from the field via the "
@@ -568,7 +571,7 @@ ACTIVITIES = [
         benefit="Extends the productive picking period by sustaining potassium supply.",
         precautions="Avoid contact with foliage; irrigate after application.",
     )),
-    (67, ActivityCategory.FERTILIZER, "Sustain Plant Stamina - Potassium Nitrate Foliar Spray", None, 1, _card(
+    (56, ActivityCategory.FERTILIZER, "Sustain Plant Stamina - Potassium Nitrate Foliar Spray", None, 1, _card(
         category="Foliar Nutrition", product="Potassium Nitrate (KNO3)", composition="13:0:45",
         dosage="5 g/L", water_volume="200 litres/acre", method="Foliar spray", timing="Early morning or evening",
         purpose="Foliar potassium nitrate gives a fast-acting boost to pod size, colour and "
@@ -577,7 +580,7 @@ ACTIVITIES = [
         benefit="Improves pod size, colour, and shelf life during peak picking.",
         precautions="Do not exceed labelled concentration; can cause leaf scorch if applied in heat.",
     )),
-    (70, ActivityCategory.SPRAY, "Rotate Mode of Action - FSB & Sucking Pest Control", 12, 2, _card(
+    (59, ActivityCategory.SPRAY, "Rotate Mode of Action - FSB & Sucking Pest Control", 12, 2, _card(
         category="Insecticide (rotation)", product="Emamectin Benzoate 5 SG (alternate with Imidacloprid 0.5 ml/L for sucking pests)",
         composition="Emamectin Benzoate 5% SG", dosage="0.4 g/L", water_volume="200 litres/acre",
         method="Foliar spray", timing="Evening, respecting spray-to-harvest interval",
@@ -588,7 +591,7 @@ ACTIVITIES = [
         precautions="Maintain a 5-7 day spray-to-harvest interval (PHI); never spray within "
                     "this window of a planned picking; evening only.",
     )),
-    (75, ActivityCategory.SPRAY,
+    (64, ActivityCategory.SPRAY,
      "Manage Red Spider Mite & Cercospora Leaf Spot", None, 1, _card(
         category="Acaricide / Fungicide (threshold-based)", product="Wettable Sulphur (mite + early leaf spot) OR Propiconazole (leaf spot)",
         composition="Sulphur 80% WP / Propiconazole 25% EC", dosage="Sulphur 3 g/L OR Propiconazole 1 ml/L",
@@ -600,7 +603,7 @@ ACTIVITIES = [
         precautions="Avoid sulphur application in extreme heat; rotate fungicide chemistry "
                     "across the season for resistance management.",
     )),
-    (80, ActivityCategory.OTHER, "Break Virus Cycle - YVMV Roguing", None, 1, _card(
+    (69, ActivityCategory.OTHER, "Break Virus Cycle - YVMV Roguing", None, 1, _card(
         category="Crop Operation", product="Manual Roguing", dosage="Not applicable",
         method="Identify and remove plants with Yellow Vein Mosaic Virus symptoms", timing="DAS 70-90, ongoing",
         purpose="YVMV-infected plants are a continuous reservoir for whitefly-transmitted "
@@ -609,7 +612,7 @@ ACTIVITIES = [
         benefit="Limits further virus spread and protects yield on remaining healthy plants.",
         precautions="Remove and destroy infected plants away from the field; do not compost on-site.",
     )),
-    (62, ActivityCategory.OTHER, "Track Crop Status - Weekly Field Observation", 7, 4, _card(
+    (52, ActivityCategory.OTHER, "Track Crop Status - Weekly Field Observation", 7, 4, _card(
         category="Crop Operation", product="Photo Observation Upload", dosage="Not applicable",
         method="Capture leaf undersides, pod quality, suspect plants; upload to Observations tab",
         timing="Weekly, good morning light",
