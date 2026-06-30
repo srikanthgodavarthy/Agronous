@@ -17,6 +17,7 @@ from app import dashboard_view
 from app.ui_helpers import require_active_season
 from seed.crop_master_seed import seed_crop_master
 from seed.bhendi_physiology_v2 import seed_bhendi_v2
+from seed.bhendi_physiology_v3 import seed_bhendi_v3
 
 col1, col2 = st.columns([1, 1])
 
@@ -26,10 +27,10 @@ with col1:
         st.success("Crop Master synchronized successfully.")
 
 with col2:
-    if st.button("🌿 Apply Bhendi Physiology Engine (v2)"):
+    if st.button("🌿 Apply Bhendi Physiology Engine (v3)"):
         try:
-            seed_bhendi_v2()
-            st.success("Bhendi v2 physiology engine applied. New seasons will use the updated schedule.")
+            seed_bhendi_v3()
+            st.success("Bhendi v3 physiology engine applied. New seasons will use the updated schedule.")
         except Exception as e:
             st.error(f"Failed: {e}")
 
