@@ -12,7 +12,7 @@ from app.ui_helpers import require_active_season
 from db.base import session_scope
 from db.models import ActivityCategory, ActivityStatus
 from repositories import schedule_repo
-from services.schedule_engine import calculate_das
+from services.schedule_engine import calculate_das, current_stage_name
 
 st.set_page_config(page_title="Cultivation Schedule", page_icon="🌿", layout="wide")
 
@@ -182,10 +182,22 @@ st.markdown("""
     width: 100%; box-sizing: border-box;
 }
 .act-product .dose { font-weight: 400; color: #6a5a98; }
+.stage-line {
+    font-size: 13px; color: #333; margin: 0 0 10px 2px;
+}
 .act-quick {
     font-size: 10px; color: #4a4a4a; text-align: center; line-height: 1.4;
     background: rgba(0,0,0,0.035); border-radius: 6px; padding: 3px 6px;
     width: 100%; box-sizing: border-box;
+}
+.act-objective {
+    font-size: 10px; color: #4a4a4a; text-align: center; line-height: 1.4;
+    background: rgba(0,0,0,0.035); border-radius: 6px; padding: 4px 6px;
+    width: 100%; box-sizing: border-box;
+}
+.act-objective b {
+    display: block; font-size: 9px; letter-spacing: 0.04em; text-transform: uppercase;
+    color: #185FA5; margin-bottom: 2px;
 }
 .act-status {
     font-size: 9px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
@@ -281,8 +293,14 @@ for tab_idx, tab in enumerate(tabs):
         for week_num, group in groupby(sorted_acts, key=lambda a: _week_num(a["activity_date"], sowing_date)):
             items = list(group)
             wlabel = _week_label(sowing_date, items[0]["activity_date"])
+            week_das = items[len(items) // 2]["das"]  # representative DAS for the week
+
+            with session_scope() as session:
+                week_stage = current_stage_name(session, ctx["crop_template_version_id"], week_das)
 
             st.markdown(f"<div class='week-pill'>📅 {wlabel}</div>", unsafe_allow_html=True)
+            if week_stage:
+                st.markdown(f"<div class='stage-line'>Current Stage: <b>{week_stage}</b></div>", unsafe_allow_html=True)
 
             # Render each card in its own Streamlit column so the action
             # buttons (✓ / ⏭ / ⓘ) sit inside the same column as the card,
@@ -294,8 +312,9 @@ for tab_idx, tab in enumerate(tabs):
                 meta         = CATEGORY_META.get(row["category"], CATEGORY_META["OTHER"])
                 date_str     = row["activity_date"].strftime("%d %b")
                 hint         = _get_hint(row["name"], row["remarks"], row["category"])
-                quick        = _quick_line(row["name"], row["remarks"], row["category"], hint)
-                quick_block  = f"<div class='act-quick'>{quick}</div>" if quick else ""
+                parsed       = _parse_remarks(row["remarks"])
+                objective    = parsed.get("Objective") or parsed.get("Purpose") or parsed.get("Benefit") or parsed.get("Notes") or ""
+                obj_block    = f"<div class='act-objective'><b>Objective</b><br>{objective}</div>" if objective else ""
                 status_label = {"OVERDUE": "Overdue"}.get(eff_status, eff_status.title())
 
                 card_html = "".join([
@@ -303,7 +322,7 @@ for tab_idx, tab in enumerate(tabs):
                     f"<div class='act-icon' style='background:{meta['bg']}'>{meta['icon']}</div>",
                     f"<div class='act-name'>{row['name']}</div>",
                     f"<div class='act-meta'>{date_str} · DAS {row['das']}<br>{meta['label']}</div>",
-                    quick_block,
+                    obj_block,
                     "<div class='act-spacer'></div>",
                     f"<div class='act-status status-{eff_status}'>{status_label}</div>",
                     "</div>",
