@@ -23,7 +23,7 @@ Run with:  python -m seed.crop_master_seed
 from __future__ import annotations
 
 from db.base import session_scope
-from db.models import ActivityCategory, ActivityTemplate, CropMaster, CropStage, CropTemplateVersion
+from db.models import ActivityCategory, ActivityTemplate, CropMaster, CropStage, CropTemplateVersion, TriggerLogic
 
 # ---------------------------------------------------------------------------
 # Each crop is defined as: stages (DAS ranges) + activity templates
@@ -767,12 +767,28 @@ def seed_crop_master() -> None:
               f"({len(CROPS) - created} already existed and were left untouched).")
 
 
+def _activity(day_offset, category, name, repeat_interval, repeat_count, remarks):
+    """
+    Back-compat wrapper: builds a plain Layer-1 9-tuple from the old 6-tuple
+    shape, for crops that haven't adopted Layer 1.5/2 yet. Existing seed
+    files (Rice, Cotton, Tomato, etc.) can keep using the 6-tuple shape
+    unchanged via create_new_version(activities=[_activity(*row) for row
+    in OLD_ACTIVITIES]) -- this function is the only place that needs to
+    know about the shape change.
+    """
+    return (day_offset, category, name, repeat_interval, repeat_count, remarks,
+            False, False, None, None)
+
+
 def create_new_version(
     crop_name: str,
     label: str,
     change_notes: str,
     stages: list[tuple[str, int, int, int, str]],
-    activities: list[tuple[int, ActivityCategory, str, int | None, int, str]],
+    activities: list[tuple[
+        int, ActivityCategory, str, int | None, int, str,
+        bool, bool, "TriggerLogic | None", list[str] | None,
+    ]],
 ) -> None:
     """
     Add a new CropTemplateVersion for an existing crop and mark it current,
@@ -784,6 +800,13 @@ def create_new_version(
     already created keeps pointing at whatever version it was generated
     against, untouched.
 
+    activities tuple shape (9 fields, 4 trailing beyond the original 6):
+        (day_offset, category, name, repeat_interval, repeat_count, remarks,
+         is_conditional, feeds_context, trigger_logic, trigger_conditions)
+    Crops that haven't adopted Layer 1.5/2 can build this shape from their
+    existing 6-tuple seed data via the _activity() wrapper above, with zero
+    edits to their own seed data.
+
     Example:
         create_new_version(
             crop_name="Rice (Paddy)",
@@ -791,7 +814,7 @@ def create_new_version(
             change_notes="Split urea top-dressing into 3 doses per "
                           "updated state agricultural department guidance.",
             stages=[...],       # same shape as CROPS[i]["stages"]
-            activities=[...],   # same shape as CROPS[i]["activities"]
+            activities=[_activity(*row) for row in OLD_ACTIVITIES],
         )
     """
     with session_scope() as session:
@@ -835,7 +858,8 @@ def create_new_version(
                 )
             )
 
-        for day_offset, category, name, repeat_interval, repeat_count, remarks in activities:
+        for (day_offset, category, name, repeat_interval, repeat_count, remarks,
+             is_conditional, feeds_context, trigger_logic, trigger_conditions) in activities:
             session.add(
                 ActivityTemplate(
                     version_id=new_version.id,
@@ -845,6 +869,10 @@ def create_new_version(
                     repeat_interval_days=repeat_interval,
                     repeat_count=repeat_count,
                     default_remarks=remarks,
+                    is_conditional=is_conditional,
+                    feeds_context=feeds_context,
+                    trigger_logic=trigger_logic,
+                    trigger_conditions=trigger_conditions,
                 )
             )
 
