@@ -34,6 +34,13 @@ def generate_schedule_for_season(session: Session, season: Season) -> list[Sched
     Build ScheduleActivity rows for `season` from the ActivityTemplate rows
     belonging to season.crop_template_version_id. Pure function of
     (templates, sowing_date) -- no hardcoded crop knowledge here.
+
+    Per ADR-0007 (docs/architecture/ADR-0007-milestone-based-scheduling.md):
+    this is a deterministic projection engine. It consumes milestone dates
+    (today, only sowing_date; future PRs add other resolved milestone
+    anchors) but never determines them. If you find yourself writing
+    crop-specific branching or estimating a biological date here, that
+    logic belongs in a resolver/estimator upstream, not in this function.
     """
     templates: list[ActivityTemplate] = (
         session.query(ActivityTemplate)
