@@ -33,5 +33,20 @@ with col2:
         except Exception as e:
             st.error(f"Failed: {e}")
 
+st.divider()
+
+with st.expander("⚠️ Danger Zone"):
+    st.warning("This will permanently delete **all farms, seasons, schedules, expenses, revenue, and observations**. This cannot be undone.")
+    confirm = st.text_input("Type DELETE to confirm", key="delete_confirm")
+    if st.button("🗑️ Delete All Farms & Seasons", type="primary", disabled=confirm != "DELETE"):
+        try:
+            from db.base import session_scope
+            from db.models import Farm
+            with session_scope() as session:
+                deleted = session.query(Farm).delete(synchronize_session=False)
+            st.success(f"Deleted {deleted} farm(s) and all associated data.")
+        except Exception as e:
+            st.error(f"Failed: {e}")
+
 ctx = require_active_season()
 dashboard_view.render(ctx)
