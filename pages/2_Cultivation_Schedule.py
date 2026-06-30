@@ -17,21 +17,25 @@ from services.schedule_engine import calculate_das, current_stage_name
 st.set_page_config(page_title="Cultivation Schedule", page_icon="🌿", layout="wide")
 
 CATEGORY_META = {
-    "IRRIGATION":       {"icon": "💧", "bg": "rgba(60,130,200,0.10)",  "label": "Irrigation"},
-    "FERTILIZER":       {"icon": "🌱", "bg": "rgba(100,170,60,0.10)",  "label": "Fertilizer"},
-    "SPRAY":            {"icon": "🧴", "bg": "rgba(130,60,180,0.10)",  "label": "Spray/Pest"},
-    "WEEDING":          {"icon": "🌾", "bg": "rgba(200,100,30,0.10)",  "label": "Weeding"},
-    "LAND_PREPARATION": {"icon": "🚜", "bg": "rgba(180,120,60,0.10)",  "label": "Land Prep"},
-    "SOWING":           {"icon": "🌰", "bg": "rgba(80,160,80,0.10)",   "label": "Sowing"},
-    "HARVEST":          {"icon": "🌾", "bg": "rgba(200,160,20,0.10)",  "label": "Harvest"},
-    "OTHER":            {"icon": "📋", "bg": "rgba(100,110,120,0.10)", "label": "Other"},
+    "IRRIGATION":       {"icon": "💧", "accent": "#2E78B7", "soft": "#EAF3FB", "label": "Irrigation"},
+    "FERTILIZER":       {"icon": "🌱", "accent": "#2F8F4E", "soft": "#EAF7EE", "label": "Fertilizer"},
+    "SPRAY":            {"icon": "🧴", "accent": "#9B3FB5", "soft": "#F6ECFA", "label": "Spray / Pest"},
+    "WEEDING":          {"icon": "🌾", "accent": "#C2700E", "soft": "#FBF1E4", "label": "Weeding"},
+    "LAND_PREPARATION": {"icon": "🚜", "accent": "#8A5A2B", "soft": "#F4ECE2", "label": "Land Prep"},
+    "SOWING":           {"icon": "🌰", "accent": "#3E8E4F", "soft": "#ECF7EE", "label": "Sowing"},
+    "HARVEST":          {"icon": "🌾", "accent": "#B68A0E", "soft": "#FAF4E1", "label": "Harvest"},
+    "OTHER":            {"icon": "📋", "accent": "#5B6470", "soft": "#EFF1F3", "label": "Other"},
 }
 
+# Cards that need an urgent, can't-miss "what to apply" badge on the face —
+# this is the #1 thing a farmer needs to act on without tapping in.
+ACTIONABLE_CATS = {"SPRAY", "FERTILIZER"}
+
 STATUS_CARD_STYLE = {
-    "PENDING":   "background:#fffbf0; border-color:#f5d98a;",
-    "COMPLETED": "background:#f0faf4; border-color:#b6e4cb;",
-    "SKIPPED":   "background:#f5f5f4; border-color:#d3d1c7;",
-    "OVERDUE":   "background:#fdf2f2; border-color:#f0b4b4;",
+    "PENDING":   "background:#FFFFFF; border-color:#EDE6D6;",
+    "COMPLETED": "background:#FBFCFA; border-color:#D8E9DD;",
+    "SKIPPED":   "background:#FAFAF9; border-color:#E5E3DD;",
+    "OVERDUE":   "background:#FFFBFA; border-color:#F0C4BC;",
 }
 
 PRODUCT_HINTS = {
@@ -151,89 +155,120 @@ def _effective_status(row: dict, today: date) -> str:
 # ── Styles ────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+html, body, [class*="css"] { font-family: 'Inter', -apple-system, sans-serif; }
+
+.stApp { background: #FAF8F4; }
+
 .week-pill {
-    display: inline-flex; align-items: center; gap: 6px;
-    font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
-    color: #185FA5; background: #E6F1FB;
-    border: 0.5px solid #B5D4F4;
-    padding: 4px 12px; border-radius: 20px; margin: 18px 0 12px 0;
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: #FFFFFF; background: linear-gradient(135deg, #2F5F45, #21462F);
+    padding: 6px 14px; border-radius: 8px; margin: 22px 0 6px 0;
+    box-shadow: 0 2px 6px rgba(33,70,47,0.25);
 }
+.stage-line {
+    font-size: 13px; color: #6B6456; margin: 0 0 14px 2px;
+    padding-bottom: 10px; border-bottom: 1px solid #EDE6D6;
+}
+.stage-line b { color: #2F5F45; font-weight: 700; }
+
+/* ── Card shell ─────────────────────────────────────────────────────── */
 .act-card {
-    border-radius: 12px; padding: 14px 12px 10px 12px;
-    display: flex; flex-direction: column; align-items: center; gap: 8px;
-    border: 0.5px solid transparent;
-    min-height: 170px; position: relative; box-sizing: border-box;
+    border-radius: 14px; padding: 0;
+    display: flex; flex-direction: column;
+    border: 1px solid transparent;
+    min-height: 150px; position: relative; box-sizing: border-box;
+    box-shadow: 0 1px 2px rgba(30,25,15,0.04), 0 4px 14px rgba(30,25,15,0.05);
+}
+.act-card-top {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 14px 14px 0 14px;
 }
 .act-icon {
-    width: 38px; height: 38px; border-radius: 10px; font-size: 18px;
+    flex: none; width: 36px; height: 36px; border-radius: 9px; font-size: 17px;
     display: flex; align-items: center; justify-content: center;
 }
 .act-name {
-    font-size: 12px; font-weight: 500; color: #1a1a1a;
-    text-align: center; line-height: 1.35;
+    font-size: 13px; font-weight: 700; color: #221F18;
+    line-height: 1.3; padding-top: 3px;
 }
 .act-meta {
-    font-size: 10px; color: #888; text-align: center; line-height: 1.5;
+    font-size: 10.5px; color: #9A9485; line-height: 1.5; font-weight: 500;
 }
-.act-product {
-    font-size: 10px; font-weight: 600; color: #5a4a8a;
-    background: rgba(130,60,180,0.08); border: 0.5px solid rgba(130,60,180,0.18);
-    border-radius: 6px; padding: 3px 6px; text-align: center; line-height: 1.4;
-    width: 100%; box-sizing: border-box;
+.act-cat-tag {
+    font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
 }
-.act-product .dose { font-weight: 400; color: #6a5a98; }
-.stage-line {
-    font-size: 13px; color: #333; margin: 0 0 10px 2px;
+
+/* ── The "what to apply" badge — bold, always visible, top priority ── */
+.act-action-badge {
+    margin: 10px 14px 0 14px; border-radius: 9px;
+    padding: 8px 10px; box-sizing: border-box;
 }
-.act-quick {
-    font-size: 10px; color: #4a4a4a; text-align: center; line-height: 1.4;
-    background: rgba(0,0,0,0.035); border-radius: 6px; padding: 3px 6px;
-    width: 100%; box-sizing: border-box;
+.act-action-badge .tag {
+    font-size: 8.5px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase;
+    opacity: 0.85; display: block; margin-bottom: 3px;
 }
+.act-action-badge .product {
+    font-size: 12px; font-weight: 700; line-height: 1.35;
+}
+.act-action-badge .dose {
+    font-size: 11px; font-weight: 600; opacity: 0.85; margin-top: 1px;
+}
+
 .act-objective {
-    font-size: 10px; color: #4a4a4a; text-align: center; line-height: 1.4;
-    background: rgba(0,0,0,0.035); border-radius: 6px; padding: 4px 6px;
-    width: 100%; box-sizing: border-box;
+    font-size: 10.5px; color: #6B6456; text-align: left; line-height: 1.45;
+    padding: 8px 14px 0 14px;
 }
 .act-objective b {
-    display: block; font-size: 9px; letter-spacing: 0.04em; text-transform: uppercase;
-    color: #185FA5; margin-bottom: 2px;
+    display: block; font-size: 9px; letter-spacing: 0.05em; text-transform: uppercase;
+    color: #9A9485; margin-bottom: 2px; font-weight: 700;
 }
+.act-spacer { flex: 1; min-height: 8px; }
+.act-status-row { display: flex; justify-content: flex-end; padding: 0 14px 12px 14px; }
 .act-status {
-    font-size: 9px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
-    border-radius: 8px; padding: 2px 8px; margin-top: 2px;
+    font-size: 9px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
+    border-radius: 20px; padding: 3px 10px;
+    display: inline-flex; align-items: center; gap: 4px;
 }
-.status-PENDING   { background: #fdf0cf; color: #8a6512; }
-.status-COMPLETED { background: #d9f0e2; color: #1c6b41; }
-.status-SKIPPED   { background: #e6e5e1; color: #6b6a63; }
-.status-OVERDUE   { background: #fadcdc; color: #a32f2f; }
-.act-spacer { flex: 1; }
-/* ── card-wrapper: card + buttons share the same rounded border ── */
+.act-status::before {
+    content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor;
+}
+.status-PENDING   { background: #FCF3DD; color: #966B0C; }
+.status-COMPLETED { background: #E1F2E6; color: #1F7A41; }
+.status-SKIPPED   { background: #EEEDE8; color: #79766C; }
+.status-OVERDUE   { background: #FBE3DF; color: #C13E2A; }
+
+/* ── card-wrapper: card + buttons share the same rounded shell ── */
 .card-wrapper {
-    border-radius: 12px; overflow: hidden;
+    border-radius: 14px; overflow: hidden;
     display: flex; flex-direction: column;
 }
-/* ── button row inside the card: flush to card bottom ── */
 .card-wrapper [data-testid="stHorizontalBlock"] {
     padding: 0 !important; gap: 0 !important;
 }
-/* Make the Streamlit column containers flush inside the card */
 .card-wrapper [data-testid="column"] {
     padding: 0 !important;
 }
-/* Small compact buttons that sit inside the card */
 .card-wrapper button[kind="secondary"] {
     border-radius: 0 !important;
-    border-top: 1px solid rgba(0,0,0,0.08) !important;
+    border-top: 1px solid rgba(30,25,15,0.07) !important;
     border-left: none !important; border-right: none !important; border-bottom: none !important;
     background: transparent !important;
-    padding: 4px 0 !important;
+    padding: 6px 0 !important;
     font-size: 13px !important;
-    min-height: 32px !important;
-    height: 32px !important;
+    min-height: 34px !important;
+    height: 34px !important;
+    color: #5B5648 !important;
+    transition: background 0.15s ease;
+}
+.card-wrapper button[kind="secondary"]:hover {
+    background: rgba(47,95,69,0.06) !important;
+    color: #2F5F45 !important;
 }
 .card-wrapper [data-testid="column"]:not(:last-child) button[kind="secondary"] {
-    border-right: 1px solid rgba(0,0,0,0.08) !important;
+    border-right: 1px solid rgba(30,25,15,0.07) !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -314,17 +349,45 @@ for tab_idx, tab in enumerate(tabs):
                 hint         = _get_hint(row["name"], row["remarks"], row["category"])
                 parsed       = _parse_remarks(row["remarks"])
                 objective    = parsed.get("Objective") or parsed.get("Purpose") or parsed.get("Benefit") or parsed.get("Notes") or ""
-                obj_block    = f"<div class='act-objective'><b>Objective</b><br>{objective}</div>" if objective else ""
                 status_label = {"OVERDUE": "Overdue"}.get(eff_status, eff_status.title())
+
+                # ── Action badge: the product + dose, always visible on the
+                # card face (not hidden behind the ⓘ button) for spray and
+                # fertilizer activities, since that's the one thing a farmer
+                # needs to read and act on at a glance.
+                product = parsed.get("Product") or (hint["combo"] if hint else "")
+                dose    = parsed.get("Dose") or (hint["dose"] if hint else "")
+                badge_block = ""
+                if row["category"] in ACTIONABLE_CATS and (product or dose):
+                    badge_tag = "🧴 SPRAY / APPLY" if row["category"] == "SPRAY" else "🌱 APPLY"
+                    badge_block = "".join([
+                        f"<div class='act-action-badge' style='background:{meta['soft']}; "
+                        f"border:1px solid {meta['accent']}33; color:{meta['accent']};'>",
+                        f"<span class='tag'>{badge_tag}</span>",
+                        f"<div class='product'>{product}</div>" if product else "",
+                        f"<div class='dose'>{dose}</div>" if dose else "",
+                        "</div>",
+                    ])
+
+                obj_block = (
+                    f"<div class='act-objective'><b>Why</b>{objective}</div>"
+                    if objective else ""
+                )
 
                 card_html = "".join([
                     f"<div class='act-card' style='{card_style}'>",
-                    f"<div class='act-icon' style='background:{meta['bg']}'>{meta['icon']}</div>",
+                    "<div class='act-card-top'>",
+                    f"<div class='act-icon' style='background:{meta['soft']}'>{meta['icon']}</div>",
+                    "<div>",
                     f"<div class='act-name'>{row['name']}</div>",
-                    f"<div class='act-meta'>{date_str} · DAS {row['das']}<br>{meta['label']}</div>",
+                    f"<div class='act-meta'>{date_str} · DAS {row['das']} &nbsp;·&nbsp; "
+                    f"<span class='act-cat-tag' style='color:{meta['accent']}'>{meta['label']}</span></div>",
+                    "</div>",
+                    "</div>",
+                    badge_block,
                     obj_block,
                     "<div class='act-spacer'></div>",
-                    f"<div class='act-status status-{eff_status}'>{status_label}</div>",
+                    f"<div class='act-status-row'><div class='act-status status-{eff_status}'>{status_label}</div></div>",
                     "</div>",
                 ])
 
