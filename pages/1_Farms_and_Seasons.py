@@ -37,10 +37,32 @@ with tab_farms:
     if farms_data:
         for fid, name, location, total_area, area_unit in farms_data:
             with st.container(border=True):
-                c1, c2, c3 = st.columns([2, 2, 1])
+                c1, c2, c3, c4 = st.columns([2, 2, 1, 1])
                 c1.markdown(f"**{name}**")
                 c2.markdown(location or "_No location set_")
                 c3.markdown(f"{total_area or '—'} {area_unit}" if total_area else "—")
+
+                confirm_key = f"confirm_delete_farm_{fid}"
+                if not st.session_state.get(confirm_key):
+                    if c4.button("🗑️ Delete", key=f"delete_farm_{fid}"):
+                        st.session_state[confirm_key] = True
+                        st.rerun()
+                else:
+                    st.warning(
+                        f"Delete **{name}**? This permanently deletes the farm and ALL its "
+                        "seasons (schedules, expenses, revenues, observations, alerts)."
+                    )
+                    cc1, cc2 = st.columns(2)
+                    if cc1.button("Yes, delete permanently", key=f"confirm_yes_{fid}", type="primary"):
+                        with session_scope() as session:
+                            farm_obj = farm_repo.get_farm(session, SINGLE_USER_ID, fid)
+                            if farm_obj is not None:
+                                farm_repo.delete_farm(session, farm_obj)
+                        del st.session_state[confirm_key]
+                        st.rerun()
+                    if cc2.button("Cancel", key=f"confirm_no_{fid}"):
+                        del st.session_state[confirm_key]
+                        st.rerun()
     else:
         st.info("You haven't added any farms yet. Add your first one below.")
 
@@ -106,7 +128,7 @@ with tab_seasons:
                 c5.markdown(badge)
 
                 if status == "ACTIVE":
-                    bc1, bc2 = st.columns(2)
+                    bc1, bc2, bc3 = st.columns(3)
                     if bc1.button("Mark Completed", key=f"complete_{sid}"):
                         with session_scope() as session:
                             season_obj = season_repo.get_season(session, SINGLE_USER_ID, sid)
@@ -118,6 +140,31 @@ with tab_seasons:
                             season_obj = season_repo.get_season(session, SINGLE_USER_ID, sid)
                             season_repo.update_season_status(session, season_obj, SeasonStatus.ABANDONED)
                         # rerun OUTSIDE session_scope
+                        st.rerun()
+                    delete_col = bc3
+                else:
+                    delete_col = st.columns(3)[2]
+
+                confirm_key = f"confirm_delete_season_{sid}"
+                if not st.session_state.get(confirm_key):
+                    if delete_col.button("🗑️ Delete", key=f"delete_season_{sid}"):
+                        st.session_state[confirm_key] = True
+                        st.rerun()
+                else:
+                    st.warning(
+                        f"Delete this **{crop_name}** season on **{farm_name}**? This permanently "
+                        "deletes its schedule, expenses, revenues, observations, and alerts."
+                    )
+                    cc1, cc2 = st.columns(2)
+                    if cc1.button("Yes, delete permanently", key=f"confirm_yes_season_{sid}", type="primary"):
+                        with session_scope() as session:
+                            season_obj = season_repo.get_season(session, SINGLE_USER_ID, sid)
+                            if season_obj is not None:
+                                season_repo.delete_season(session, season_obj)
+                        del st.session_state[confirm_key]
+                        st.rerun()
+                    if cc2.button("Cancel", key=f"confirm_no_season_{sid}"):
+                        del st.session_state[confirm_key]
                         st.rerun()
     else:
         st.info("No seasons yet. Start your first cultivation cycle below.")
