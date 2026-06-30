@@ -18,8 +18,9 @@ from app.ui_helpers import require_active_season
 from seed.crop_master_seed import seed_crop_master
 from seed.bhendi_physiology_v2 import seed_bhendi_v2
 from seed.bhendi_physiology_v3 import seed_bhendi_v3
+from seed.toor_dal_v1 import seed_toor_dal_v1
 
-col1, col2 = st.columns([1, 1])
+col1, col2, col3 = st.columns([1, 1, 1])
 
 with col1:
     if st.button("Synchronize Crop Master"):
@@ -31,6 +32,19 @@ with col2:
         try:
             seed_bhendi_v3()
             st.success("Bhendi v3 physiology engine applied. New seasons will use the updated schedule.")
+        except Exception as e:
+            st.error(f"Failed: {e}")
+
+with col3:
+    if st.button("🌱 Apply Toor Dal Full Schedule (v1)"):
+        try:
+            seed_toor_dal_v1()
+            st.success(
+                "Toor Dal full schedule (v1) applied. New seasons will use the "
+                "updated 12-stage/60-activity template; existing seasons keep "
+                "the version they were created against -- recreate the season "
+                "to pick up the new schedule."
+            )
         except Exception as e:
             st.error(f"Failed: {e}")
 
