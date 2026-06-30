@@ -70,7 +70,7 @@ PRODUCT_HINTS = {
 
 import re
 
-REMARK_LABELS = ["Product", "Composition", "Dose", "Water", "Method", "Timing", "Objective", "Why", "Precautions", "Purpose", "Benefit", "Notes"]
+REMARK_LABELS = ["Priority", "Product", "Composition", "Dose", "Water", "Method", "Timing", "Indicator", "Objective", "Why", "Precautions", "Purpose", "Benefit", "Notes"]
 
 
 def _parse_remarks(remarks: str) -> dict[str, str]:
