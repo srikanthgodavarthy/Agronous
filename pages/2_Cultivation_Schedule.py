@@ -185,6 +185,7 @@ PEST_ICON_HINTS = [
     ("mite",           "🕷️"),
     ("fsb",            "🐛"),
     ("borer",          "🐛"),
+    ("cutworm",        "🐛"),
     ("caterpillar",    "🐛"),
     ("mildew",         "🍄"),
     ("cercospora",     "🍄"),
@@ -196,6 +197,11 @@ PEST_ICON_DEFAULT = "🐞"  # generic fallback for broad-spectrum / unmatched sp
 
 def _pest_icon(name: str, remarks: str) -> str:
     text = (name + " " + remarks).lower()
+    # Scouting/monitoring activities aren't applications -- give them a
+    # distinct magnifying-glass icon regardless of which pest they're
+    # checking for, so they never look identical to a real spray card.
+    if any(kw in text for kw in ("inspection", "scouting", "monitor")):
+        return "🔍"
     for kw, icon in PEST_ICON_HINTS:
         if kw in text:
             return icon
@@ -299,6 +305,13 @@ div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stMarkdownConta
 div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stMarkdownContainer"]:first-child > div {
     flex: 1 1 auto; display: flex; flex-direction: column;
 }
+/* Fix: inner Streamlit wrappers ship an opaque theme background that sits
+   on top of the status-colored border-wrapper above, hiding the fill.
+   Force them transparent so the wrapper's :has() color shows through. */
+div[data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"],
+div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stMarkdownContainer"] {
+    background: transparent !important;
+}
 /* Hide Streamlit tooltip dot leaking through action badges */
 div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stTooltipIcon"] {
     display: none !important;
@@ -319,6 +332,10 @@ div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stTooltipIcon"] {
 .act-card-top {
     display: flex; align-items: flex-start; gap: 10px;
     padding: 14px 14px 0 14px;
+    /* Fixed header height: icon row + 3-line name + 2 meta rows. Pins the
+       badge slot below to the same starting Y on every card, independent
+       of whether the face icon is present/redundant for this category. */
+    min-height: 96px;
 }
 .act-card-top:has(> .act-icon) { gap: 10px; }
 .act-card-top:not(:has(> .act-icon)) { gap: 0; }
@@ -339,6 +356,8 @@ div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stTooltipIcon"] {
 }
 .act-meta {
     font-size: 10.5px; color: #756F60; line-height: 1.5; font-weight: 500;
+    text-align: center; /* horizontally align date and category rows so
+                            every card's middle badge starts at the same X */
 }
 .act-cat-tag {
     font-size: 9.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
@@ -352,6 +371,9 @@ div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stTooltipIcon"] {
     min-height: 72px; /* matches .act-action-badge-blank so every card's
                           middle slot is the same size regardless of
                           content */
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center;
 }
 .act-action-badge .tag {
     font-size: 8.5px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase;
@@ -620,10 +642,11 @@ for tab_idx, tab in enumerate(tabs):
                         ).format(s=soft, a=acc, icon=meta["icon"])
 
                     # Top-left face icon: pest/insect icon for Spray cards
-                    # (more useful than the generic bottle), hidden for
-                    # categories whose watermark already shows the category
-                    # icon in the middle slot, unchanged (category icon) for
-                    # Fertilizer and Other.
+                    # (more useful than the generic bottle), a distinct 🔍 for
+                    # scouting/inspection activities so they never look like a
+                    # real application, hidden for categories whose watermark
+                    # already shows the category icon in the middle slot,
+                    # unchanged (category icon) for Fertilizer and Other.
                     if row["category"] == "SPRAY":
                         face_icon  = _pest_icon(row["name"], row["remarks"])
                         icon_block = "<div class='act-icon' style='background:{}'>{}</div>".format(soft, face_icon)
