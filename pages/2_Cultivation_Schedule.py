@@ -382,8 +382,9 @@ div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stTooltipIcon"] {
     margin: 12px 14px 0 14px; border-radius: 9px;
     padding: 10px; box-sizing: border-box;
     color: #FFFFFF;
-    flex: 1 1 auto; min-height: 72px; /* grows to use the card's spare
-                          vertical space instead of leaving it blank below */
+    height: 168px; /* fixed — every card's badge is identically sized,
+                       regardless of that card's own title length/total
+                       height (flex-grow made it vary card to card) */
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     text-align: center;
@@ -410,7 +411,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stTooltipIcon"] {
    empty gap between it and the status pill. ──────────────────────────── */
 .act-action-badge-blank {
     margin: 12px 14px 0 14px; border-radius: 9px;
-    flex: 1 1 auto; min-height: 72px; box-sizing: border-box;
+    height: 168px; box-sizing: border-box;
     border: 1px solid;
     display: flex; align-items: center; justify-content: center;
 }
@@ -418,8 +419,8 @@ div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stTooltipIcon"] {
     font-size: 32px; opacity: 0.62;
 }
 
-.act-spacer { display: none; } /* badge/blank now grows to fill this role */
-.act-status-row { display: flex; justify-content: flex-end; padding: 0 14px 12px 14px; }
+.act-spacer { flex: 1 1 auto; min-height: 4px; }
+.act-status-row { display: flex; justify-content: center; padding: 14px 14px 12px 14px; }
 .act-status {
     font-size: 9px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
     border-radius: 20px; padding: 3px 10px;
@@ -670,6 +671,16 @@ for tab_idx, tab in enumerate(tabs):
                     else:
                         icon_block = "<div class='act-icon' style='background:{}'>{}</div>".format(soft, meta["icon"])
 
+                    # Completed/Skipped are already unmistakable from the
+                    # full-card fill color and (below) the filled ✓/⏭
+                    # button — a text pill on top of that is redundant.
+                    # Pending/Overdue keep the pill since those need to
+                    # visually stand out as "needs action."
+                    if eff_status in ("PENDING", "OVERDUE"):
+                        status_row_html = "<div class='act-status-row'><div class='act-status status-{}'>{}</div></div>".format(eff_status, status_label)
+                    else:
+                        status_row_html = "<div style='padding-bottom:14px;'></div>"
+
                     card_html = "".join([
                         "<div class='act-card'>",
                         "<span class='card-status-marker card-status-{}'></span>".format(eff_status),
@@ -683,13 +694,31 @@ for tab_idx, tab in enumerate(tabs):
                         "<div class='act-meta'><span class='act-cat-tag' style='color:{}'>{}</span></div>".format(acc, meta["label"]),
                         "</div>",
                         badge_block,
-                        "<div class='act-status-row'><div class='act-status status-{}'>{}</div></div>".format(eff_status, status_label),
+                        "<div class='act-spacer'></div>",
+                        status_row_html,
                         "</div>",
                     ])
 
                     card_key = "card_{}_{}".format(tab_idx, row["id"])
+                    done_key = "done_{}_{}".format(tab_idx, row["id"])
+                    skip_key = "skip_{}_{}".format(tab_idx, row["id"])
                     fill = STATUS_CARD_FILL.get(eff_status, STATUS_CARD_FILL["PENDING"])
                     skip_dim = "opacity:0.75;" if eff_status == "SKIPPED" else ""
+
+                    # ✓/⏭ buttons carry the Completed/Skipped signal now
+                    # that the text pill is gone for those two statuses —
+                    # solid color fill on the matching icon button.
+                    button_fill_css = ""
+                    if eff_status == "COMPLETED":
+                        button_fill_css = (
+                            "div.st-key-{dk} button {{background:#1F7A41 !important; "
+                            "color:#FFFFFF !important; border-color:#1F7A41 !important;}}"
+                        ).format(dk=done_key)
+                    elif eff_status == "SKIPPED":
+                        button_fill_css = (
+                            "div.st-key-{sk} button {{background:#79766C !important; "
+                            "color:#FFFFFF !important; border-color:#79766C !important;}}"
+                        ).format(sk=skip_key)
 
                     with col:
                         # Key-scoped fill: Streamlit stamps a `st-key-<key>`
@@ -702,7 +731,8 @@ for tab_idx, tab in enumerate(tabs):
                             "div.st-key-{k}, div.st-key-{k} > div[data-testid='stVerticalBlockBorderWrapper'] {{"
                             "background:{bg} !important; border:1.5px solid {bd} !important; {dim}"
                             "}}"
-                            "</style>".format(k=card_key, bg=fill["bg"], bd=fill["border"], dim=skip_dim),
+                            "{btn}"
+                            "</style>".format(k=card_key, bg=fill["bg"], bd=fill["border"], dim=skip_dim, btn=button_fill_css),
                             unsafe_allow_html=True,
                         )
                         with st.container(border=True, key=card_key):
@@ -712,13 +742,13 @@ for tab_idx, tab in enumerate(tabs):
                                 unsafe_allow_html=True,
                             )
                             b1, b2, b3 = st.columns(3)
-                            if b1.button("✓", key="done_{}_{}".format(tab_idx, row["id"]), help="Mark complete", use_container_width=True):
+                            if b1.button("✓", key=done_key, help="Mark complete", use_container_width=True):
                                 with session_scope() as session:
                                     act = schedule_repo.get_activity(session, row["id"])
                                     if act:
                                         schedule_repo.mark_complete(session, act)
                                 st.rerun()
-                            if b2.button("⏭", key="skip_{}_{}".format(tab_idx, row["id"]), help="Skip", use_container_width=True):
+                            if b2.button("⏭", key=skip_key, help="Skip", use_container_width=True):
                                 with session_scope() as session:
                                     act = schedule_repo.get_activity(session, row["id"])
                                     if act:
