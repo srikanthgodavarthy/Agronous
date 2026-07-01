@@ -38,10 +38,10 @@ ICON_REDUNDANT_CATS = {"IRRIGATION", "WEEDING", "LAND_PREPARATION", "SOWING", "H
 # detail drawer is a plain st.markdown block outside the border-wrapper,
 # so it needs its own inline background rather than a CSS selector.
 STATUS_DRAWER_FILL = {
-    "PENDING":   "#FDF8ED",
-    "COMPLETED": "#EDF7F0",
-    "SKIPPED":   "#F2F1ED",
-    "OVERDUE":   "#FCEDEA",
+    "PENDING":   "#FBEECB",
+    "COMPLETED": "#D9F0E1",
+    "SKIPPED":   "#E7E4DA",
+    "OVERDUE":   "#F9D8D0",
 }
 
 # Cards that need an urgent, can't-miss "what to apply" badge on the face —
@@ -269,23 +269,23 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
    both the card content AND the ✓ / ⏭ / ⓘ button row — so the status color
    spans the entire card, buttons included, not just the inner content area. */
 div[data-testid="stVerticalBlockBorderWrapper"]:has(.card-status-PENDING) {
-    background: #FDF8ED !important;
-    border: 1.5px solid rgba(30,25,15,0.15) !important;
+    background: #FBEECB !important;
+    border: 1.5px solid rgba(150,107,12,0.35) !important;
     box-shadow: 0 1px 3px rgba(30,25,15,0.05), 0 4px 16px rgba(30,25,15,0.06) !important;
 }
 div[data-testid="stVerticalBlockBorderWrapper"]:has(.card-status-COMPLETED) {
-    background: #EDF7F0 !important;
-    border: 1.5px solid rgba(31,122,65,0.4) !important;
+    background: #D9F0E1 !important;
+    border: 1.5px solid rgba(31,122,65,0.45) !important;
     box-shadow: 0 1px 3px rgba(30,25,15,0.05), 0 4px 16px rgba(30,25,15,0.06) !important;
 }
 div[data-testid="stVerticalBlockBorderWrapper"]:has(.card-status-SKIPPED) {
-    background: #F2F1ED !important;
-    border: 1.5px solid rgba(30,25,15,0.15) !important;
-    opacity: 0.65 !important;
+    background: #E7E4DA !important;
+    border: 1.5px solid rgba(30,25,15,0.2) !important;
+    opacity: 0.75 !important;
     box-shadow: 0 1px 3px rgba(30,25,15,0.05) !important;
 }
 div[data-testid="stVerticalBlockBorderWrapper"]:has(.card-status-OVERDUE) {
-    background: #FCEDEA !important;
+    background: #F9D8D0 !important;
     border: 1.5px solid #D8503A !important;
     box-shadow: 0 1px 3px rgba(216,80,58,0.15), 0 4px 16px rgba(216,80,58,0.12) !important;
 }
@@ -330,6 +330,12 @@ div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stTooltipIcon"] {
 .act-name {
     font-size: 13px; font-weight: 700; color: #221F18;
     line-height: 1.3; padding-top: 3px;
+    min-height: 40.5px; /* exactly 3 lines at this size — keeps the badge/
+                           watermark box below starting at the same height
+                           on every card, whether the title wraps to 1, 2,
+                           or 3 lines */
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 .act-meta {
     font-size: 10.5px; color: #756F60; line-height: 1.5; font-weight: 500;
@@ -343,6 +349,9 @@ div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stTooltipIcon"] {
     margin: 10px 14px 0 14px; border-radius: 9px;
     padding: 8px 10px; box-sizing: border-box;
     color: #FFFFFF;
+    min-height: 72px; /* matches .act-action-badge-blank so every card's
+                          middle slot is the same size regardless of
+                          content */
 }
 .act-action-badge .tag {
     font-size: 8.5px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase;
@@ -350,9 +359,13 @@ div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stTooltipIcon"] {
 }
 .act-action-badge .product {
     font-size: 12px; font-weight: 700; line-height: 1.35;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 .act-action-badge .dose {
     font-size: 11px; font-weight: 600; opacity: 0.9; margin-top: 1px;
+    display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 /* ── Blank slot for non-actionable cards (no spray/fertilizer to apply) —
@@ -360,12 +373,12 @@ div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stTooltipIcon"] {
    occupy, so every card in a row keeps the same visual weight. ───────── */
 .act-action-badge-blank {
     margin: 10px 14px 0 14px; border-radius: 9px;
-    min-height: 54px; box-sizing: border-box;
+    min-height: 72px; box-sizing: border-box;
     border: 1px solid;
     display: flex; align-items: center; justify-content: center;
 }
 .act-action-badge-blank span {
-    font-size: 26px; opacity: 0.35;
+    font-size: 28px; opacity: 0.62;
 }
 
 .act-spacer { flex: 1; min-height: 8px; }
