@@ -21,42 +21,29 @@ CATEGORY_META = {
     "IRRIGATION":       {"icon": "💧", "accent": "#2E78B7", "soft": "#E4F0FA", "tint": "#F2F8FD", "label": "Irrigation"},
     "FERTILIZER":       {"icon": "🌱", "accent": "#2F8F4E", "soft": "#DEF2E5", "tint": "#F1FAF4", "label": "Fertilizer"},
     "SPRAY":            {"icon": "🧴", "accent": "#9B3FB5", "soft": "#F1E1F7", "tint": "#FAF2FC", "label": "Spray / Pest"},
-    "WEEDING":          {"icon": "🌾", "accent": "#C2700E", "soft": "#F8E7CC", "tint": "#FCF4E7", "label": "Weeding"},
+    "WEEDING":          {"icon": "🧹", "accent": "#C2700E", "soft": "#F8E7CC", "tint": "#FCF4E7", "label": "Weeding"},
     "LAND_PREPARATION": {"icon": "🚜", "accent": "#8A5A2B", "soft": "#EFE0CE", "tint": "#F8F1E7", "label": "Land Prep"},
     "SOWING":           {"icon": "🌰", "accent": "#3E8E4F", "soft": "#E0F2E3", "tint": "#F2FAF3", "label": "Sowing"},
-    "HARVEST":          {"icon": "🌾", "accent": "#B68A0E", "soft": "#F7EAC4", "tint": "#FCF6E3", "label": "Harvest"},
+    "HARVEST":          {"icon": "🧺", "accent": "#B68A0E", "soft": "#F7EAC4", "tint": "#FCF6E3", "label": "Harvest"},
     "OTHER":            {"icon": "📋", "accent": "#5B6470", "soft": "#E6E8EB", "tint": "#F4F5F6", "label": "Other"},
 }
+
+# Categories where the top-left face icon is now redundant, since the
+# category watermark already shows in the middle "blank badge" slot for
+# every card in this category (they never carry a product/dose badge).
+ICON_REDUNDANT_CATS = {"IRRIGATION", "WEEDING", "LAND_PREPARATION", "SOWING", "HARVEST"}
 
 # Cards that need an urgent, can't-miss "what to apply" badge on the face —
 # this is the #1 thing a farmer needs to act on without tapping in.
 ACTIONABLE_CATS = {"SPRAY", "FERTILIZER"}
 
-# Status now drives the CARD FILL COLOR directly — pending/completed/skipped/
-# overdue read as distinct card backgrounds at a glance, since that's the
-# thing that changes day to day. Category color-coding still lives in the
-# icon chip, the category-tag label, and (for non-actionable cards) the
-# watermark icon slot where the spray/fertilizer badge would otherwise sit.
-STATUS_FILL = {
-    "PENDING":   "#FDF8ED",   # warm neutral — nothing urgent yet
-    "COMPLETED": "#EDF7F0",   # soft green — done
-    "SKIPPED":   "#F2F1ED",   # muted grey — inactive
-    "OVERDUE":   "#FCEDEA",   # soft red — needs attention
-}
-
-# Status still controls a subtle outer ring + the status pill, layered on
-# top of the STATUS_FILL background, so OVERDUE reads doubly urgent
-# (red fill + red ring) and COMPLETED reads doubly settled (green fill +
-# green ring).
-STATUS_RING = {
-    "PENDING":   "rgba(30,25,15,0.08)",
-    "COMPLETED": "rgba(31,122,65,0.35)",
-    "SKIPPED":   "rgba(30,25,15,0.08)",
-    "OVERDUE":   "#D8503A",
-}
-STATUS_OPACITY = {
-    "PENDING": "1", "COMPLETED": "1", "SKIPPED": "0.6", "OVERDUE": "1",
-}
+# Status now fills the WHOLE outer card shell — the rounded box that holds
+# the card content *and* the ✓ / ⏭ / ⓘ button row underneath — not just the
+# inner content area. This is done in CSS below via :has(.card-status-X) on
+# the Streamlit border-wrapper itself, so the color sits behind everything
+# including the action icons. Category color-coding still lives in the icon
+# chip, the category-tag label, and (for non-actionable cards) the watermark
+# icon slot where the spray/fertilizer badge would otherwise sit.
 
 PRODUCT_HINTS = {
     "dap":                   {"dose": "40 kg/acre", "combo": "DAP 18:46:0 + MOP 35 kg/acre", "note": "Basal placement in furrows before sowing."},
@@ -157,6 +144,33 @@ def _get_hint(name: str, remarks: str, category: str | None = None) -> dict | No
     return None
 
 
+# Pest/insect (or disease) icon shown top-left on SPRAY cards, in place of
+# the generic 🧴 bottle -- matched against the activity name only, same
+# false-positive rationale as PRODUCT_HINTS above (remarks prose can mention
+# a pest without a spray targeting it). Checked in order; first match wins.
+PEST_ICON_HINTS = [
+    ("whitefly",       "🪰"),
+    ("aphid",          "🪲"),
+    ("mite",           "🕷️"),
+    ("fsb",            "🐛"),
+    ("borer",          "🐛"),
+    ("caterpillar",    "🐛"),
+    ("mildew",         "🍄"),
+    ("cercospora",     "🍄"),
+    ("leaf spot",      "🍄"),
+    ("yvmv",           "🦠"),
+]
+PEST_ICON_DEFAULT = "🐞"  # generic fallback for broad-spectrum / unmatched sprays
+
+
+def _pest_icon(name: str, remarks: str) -> str:
+    text = (name + " " + remarks).lower()
+    for kw, icon in PEST_ICON_HINTS:
+        if kw in text:
+            return icon
+    return PEST_ICON_DEFAULT
+
+
 def _week_label(sowing_date: date, activity_date: date) -> str:
     das = (activity_date - sowing_date).days
     week = max(1, (das // 7) + 1)
@@ -217,6 +231,33 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
     flex-direction: column !important; min-height: 0 !important;
     border-radius: 14px !important;
 }
+/* ── Status fill on the OUTER card shell ──────────────────────────────────
+   Each card embeds an invisible marker class (.card-status-PENDING etc.)
+   inside its markdown content. :has() lets us reach up from that marker to
+   color the actual Streamlit border-wrapper div — the box that contains
+   both the card content AND the ✓ / ⏭ / ⓘ button row — so the status color
+   spans the entire card, buttons included, not just the inner content area. */
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.card-status-PENDING) {
+    background: #FDF8ED !important;
+    border: 1.5px solid rgba(30,25,15,0.15) !important;
+    box-shadow: 0 1px 3px rgba(30,25,15,0.05), 0 4px 16px rgba(30,25,15,0.06) !important;
+}
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.card-status-COMPLETED) {
+    background: #EDF7F0 !important;
+    border: 1.5px solid rgba(31,122,65,0.4) !important;
+    box-shadow: 0 1px 3px rgba(30,25,15,0.05), 0 4px 16px rgba(30,25,15,0.06) !important;
+}
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.card-status-SKIPPED) {
+    background: #F2F1ED !important;
+    border: 1.5px solid rgba(30,25,15,0.15) !important;
+    opacity: 0.65 !important;
+    box-shadow: 0 1px 3px rgba(30,25,15,0.05) !important;
+}
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.card-status-OVERDUE) {
+    background: #FCEDEA !important;
+    border: 1.5px solid #D8503A !important;
+    box-shadow: 0 1px 3px rgba(216,80,58,0.15), 0 4px 16px rgba(216,80,58,0.12) !important;
+}
 div[data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"] {
     flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0;
 }
@@ -238,14 +279,18 @@ div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stTooltipIcon"] {
     display: flex; flex-direction: column;
     flex: 1 1 auto;
     min-height: 300px; /* solid floor — cards with no badge still look full */
-    border: 1.5px solid transparent;
+    background: transparent; /* status color now comes from the outer shell */
     box-sizing: border-box;
-    box-shadow: 0 1px 3px rgba(30,25,15,0.05), 0 4px 16px rgba(30,25,15,0.06);
 }
+/* Invisible marker read by the :has() rules above — carries no visual style
+   of its own. */
+.card-status-marker { display: none; }
 .act-card-top {
     display: flex; align-items: flex-start; gap: 10px;
     padding: 14px 14px 0 14px;
 }
+.act-card-top:has(> .act-icon) { gap: 10px; }
+.act-card-top:not(:has(> .act-icon)) { gap: 0; }
 .act-icon {
     flex: none; width: 36px; height: 36px; border-radius: 9px; font-size: 17px;
     display: flex; align-items: center; justify-content: center;
@@ -504,20 +549,9 @@ for tab_idx, tab in enumerate(tabs):
                     hint         = _get_hint(row["name"], row["remarks"], row["category"])
                     parsed       = _parse_remarks(row["remarks"])
                     status_label = {"OVERDUE": "Overdue"}.get(eff_status, eff_status.title())
-                    opacity      = STATUS_OPACITY.get(eff_status, "1")
-                    border_color = STATUS_RING.get(eff_status, STATUS_RING["PENDING"])
                     acc          = meta["accent"]
                     soft         = meta["soft"]
                     tint         = meta["tint"]
-
-                    # Card background is driven by STATUS now (not category) —
-                    # pending/completed/skipped/overdue need to jump out at a
-                    # glance since that's what changes day to day. Category
-                    # still reads via the icon chip, the tag label, and the
-                    # blank-slot watermark below.
-                    card_style = "background:{}; border-color:{}; opacity:{};".format(
-                        STATUS_FILL.get(eff_status, STATUS_FILL["PENDING"]), border_color, opacity
-                    )
 
                     product = parsed.get("Product") or (hint["combo"] if hint else "")
                     dose    = parsed.get("Dose") or (hint["dose"] if hint else "")
@@ -541,10 +575,24 @@ for tab_idx, tab in enumerate(tabs):
                             "</div>"
                         ).format(s=soft, a=acc, icon=meta["icon"])
 
+                    # Top-left face icon: pest/insect icon for Spray cards
+                    # (more useful than the generic bottle), hidden for
+                    # categories whose watermark already shows the category
+                    # icon in the middle slot, unchanged (category icon) for
+                    # Fertilizer and Other.
+                    if row["category"] == "SPRAY":
+                        face_icon  = _pest_icon(row["name"], row["remarks"])
+                        icon_block = "<div class='act-icon' style='background:{}'>{}</div>".format(soft, face_icon)
+                    elif row["category"] in ICON_REDUNDANT_CATS:
+                        icon_block = ""
+                    else:
+                        icon_block = "<div class='act-icon' style='background:{}'>{}</div>".format(soft, meta["icon"])
+
                     card_html = "".join([
-                        "<div class='act-card' style='{}'>".format(card_style),
+                        "<div class='act-card'>",
+                        "<span class='card-status-marker card-status-{}'></span>".format(eff_status),
                         "<div class='act-card-top'>",
-                        "<div class='act-icon' style='background:{}'>{}</div>".format(soft, meta["icon"]),
+                        icon_block,
                         "<div style='flex:1; min-width:0;'>",
                         "<div class='act-name'>{}</div>".format(row["name"]),
                         "<div class='act-meta'>{} &nbsp;·&nbsp; DAS {}</div>".format(date_str, row["das"]),
