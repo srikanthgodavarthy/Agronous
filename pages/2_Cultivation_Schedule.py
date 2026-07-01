@@ -21,7 +21,7 @@ CATEGORY_META = {
     "IRRIGATION":       {"icon": "💧", "accent": "#2E78B7", "soft": "#E4F0FA", "tint": "#F2F8FD", "label": "Irrigation"},
     "FERTILIZER":       {"icon": "🌱", "accent": "#2F8F4E", "soft": "#DEF2E5", "tint": "#F1FAF4", "label": "Fertilizer"},
     "SPRAY":            {"icon": "🧴", "accent": "#9B3FB5", "soft": "#F1E1F7", "tint": "#FAF2FC", "label": "Spray / Pest"},
-    "WEEDING":          {"icon": "✂️", "accent": "#C2700E", "soft": "#F8E7CC", "tint": "#FCF4E7", "label": "Weeding"},
+    "WEEDING":          {"icon": "🍂", "accent": "#75793A", "soft": "#E6E8C9", "tint": "#F4F5E4", "label": "Weeding"},
     "LAND_PREPARATION": {"icon": "🚜", "accent": "#8A5A2B", "soft": "#EFE0CE", "tint": "#F8F1E7", "label": "Land Prep"},
     "SOWING":           {"icon": "🌰", "accent": "#3E8E4F", "soft": "#E0F2E3", "tint": "#F2FAF3", "label": "Sowing"},
     "HARVEST":          {"icon": "🧺", "accent": "#B68A0E", "soft": "#F7EAC4", "tint": "#FCF6E3", "label": "Harvest"},
@@ -42,6 +42,18 @@ STATUS_DRAWER_FILL = {
     "COMPLETED": "#D9F0E1",
     "SKIPPED":   "#E7E4DA",
     "OVERDUE":   "#F9D8D0",
+}
+
+# Same colors, packaged with a border tone, used to fill the OUTER card
+# shell per status. Applied via a key-scoped inline <style> block (see the
+# card-render loop below) rather than a CSS :has() selector, because :has()
+# support isn't universal across every browser/webview this app may render
+# in -- a key-scoped class selector always works regardless.
+STATUS_CARD_FILL = {
+    "PENDING":   {"bg": "#FBEECB", "border": "rgba(150,107,12,0.35)"},
+    "COMPLETED": {"bg": "#D9F0E1", "border": "rgba(31,122,65,0.45)"},
+    "SKIPPED":   {"bg": "#E7E4DA", "border": "rgba(30,25,15,0.2)"},
+    "OVERDUE":   {"bg": "#F9D8D0", "border": "#D8503A"},
 }
 
 # Cards that need an urgent, can't-miss "what to apply" badge on the face —
@@ -675,8 +687,25 @@ for tab_idx, tab in enumerate(tabs):
                         "</div>",
                     ])
 
+                    card_key = "card_{}_{}".format(tab_idx, row["id"])
+                    fill = STATUS_CARD_FILL.get(eff_status, STATUS_CARD_FILL["PENDING"])
+                    skip_dim = "opacity:0.75;" if eff_status == "SKIPPED" else ""
+
                     with col:
-                        with st.container(border=True):
+                        # Key-scoped fill: Streamlit stamps a `st-key-<key>`
+                        # class directly on this container's DOM node, so we
+                        # can target this exact card reliably (unlike a
+                        # global :has() rule, which some browsers ignore
+                        # outright rather than gracefully degrade).
+                        st.markdown(
+                            "<style>"
+                            "div.st-key-{k}, div.st-key-{k} > div[data-testid='stVerticalBlockBorderWrapper'] {{"
+                            "background:{bg} !important; border:1.5px solid {bd} !important; {dim}"
+                            "}}"
+                            "</style>".format(k=card_key, bg=fill["bg"], bd=fill["border"], dim=skip_dim),
+                            unsafe_allow_html=True,
+                        )
+                        with st.container(border=True, key=card_key):
                             st.markdown(card_html, unsafe_allow_html=True)
                             st.markdown(
                                 "<hr style='margin:6px 0 4px 0;border:none;border-top:1px solid {}33'>".format(acc),
