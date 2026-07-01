@@ -32,10 +32,22 @@ CATEGORY_META = {
 # this is the #1 thing a farmer needs to act on without tapping in.
 ACTIONABLE_CATS = {"SPRAY", "FERTILIZER"}
 
-# Status no longer controls card background (category color owns that now).
-# It only controls a subtle outer ring + the status pill, so OVERDUE still
-# reads as urgent and SKIPPED/COMPLETED still read as "done with", without
-# fighting the category color-coding.
+# Status now drives the CARD FILL COLOR directly — pending/completed/skipped/
+# overdue read as distinct card backgrounds at a glance, since that's the
+# thing that changes day to day. Category color-coding still lives in the
+# icon chip, the category-tag label, and (for non-actionable cards) the
+# watermark icon slot where the spray/fertilizer badge would otherwise sit.
+STATUS_FILL = {
+    "PENDING":   "#FDF8ED",   # warm neutral — nothing urgent yet
+    "COMPLETED": "#EDF7F0",   # soft green — done
+    "SKIPPED":   "#F2F1ED",   # muted grey — inactive
+    "OVERDUE":   "#FCEDEA",   # soft red — needs attention
+}
+
+# Status still controls a subtle outer ring + the status pill, layered on
+# top of the STATUS_FILL background, so OVERDUE reads doubly urgent
+# (red fill + red ring) and COMPLETED reads doubly settled (green fill +
+# green ring).
 STATUS_RING = {
     "PENDING":   "rgba(30,25,15,0.08)",
     "COMPLETED": "rgba(31,122,65,0.35)",
@@ -267,14 +279,19 @@ div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stTooltipIcon"] {
     font-size: 11px; font-weight: 600; opacity: 0.9; margin-top: 1px;
 }
 
-.act-objective {
-    font-size: 10.5px; color: #5E594C; text-align: left; line-height: 1.45;
-    padding: 8px 14px 0 14px;
+/* ── Blank slot for non-actionable cards (no spray/fertilizer to apply) —
+   watermarks the category icon in the same footprint the badge would
+   occupy, so every card in a row keeps the same visual weight. ───────── */
+.act-action-badge-blank {
+    margin: 10px 14px 0 14px; border-radius: 9px;
+    min-height: 54px; box-sizing: border-box;
+    border: 1px solid;
+    display: flex; align-items: center; justify-content: center;
 }
-.act-objective b {
-    display: block; font-size: 9px; letter-spacing: 0.05em; text-transform: uppercase;
-    color: #8C8676; margin-bottom: 2px; font-weight: 800;
+.act-action-badge-blank span {
+    font-size: 26px; opacity: 0.35;
 }
+
 .act-spacer { flex: 1; min-height: 8px; }
 .act-status-row { display: flex; justify-content: flex-end; padding: 0 14px 12px 14px; }
 .act-status {
@@ -486,7 +503,6 @@ for tab_idx, tab in enumerate(tabs):
                     date_str     = row["activity_date"].strftime("%d %b")
                     hint         = _get_hint(row["name"], row["remarks"], row["category"])
                     parsed       = _parse_remarks(row["remarks"])
-                    objective    = parsed.get("Objective") or parsed.get("Purpose") or parsed.get("Benefit") or parsed.get("Notes") or ""
                     status_label = {"OVERDUE": "Overdue"}.get(eff_status, eff_status.title())
                     opacity      = STATUS_OPACITY.get(eff_status, "1")
                     border_color = STATUS_RING.get(eff_status, STATUS_RING["PENDING"])
@@ -494,13 +510,17 @@ for tab_idx, tab in enumerate(tabs):
                     soft         = meta["soft"]
                     tint         = meta["tint"]
 
+                    # Card background is driven by STATUS now (not category) —
+                    # pending/completed/skipped/overdue need to jump out at a
+                    # glance since that's what changes day to day. Category
+                    # still reads via the icon chip, the tag label, and the
+                    # blank-slot watermark below.
                     card_style = "background:{}; border-color:{}; opacity:{};".format(
-                        tint, border_color, opacity
+                        STATUS_FILL.get(eff_status, STATUS_FILL["PENDING"]), border_color, opacity
                     )
 
                     product = parsed.get("Product") or (hint["combo"] if hint else "")
                     dose    = parsed.get("Dose") or (hint["dose"] if hint else "")
-                    badge_block = ""
                     if row["category"] in ACTIONABLE_CATS and (product or dose):
                         badge_tag = "🧴 SPRAY · APPLY NOW" if row["category"] == "SPRAY" else "🌱 FERTILIZER · APPLY"
                         badge_block = "".join([
@@ -510,11 +530,16 @@ for tab_idx, tab in enumerate(tabs):
                             "<div class='dose'>{}</div>".format(dose) if dose else "",
                             "</div>",
                         ])
-
-                    obj_block = (
-                        "<div class='act-objective'><b>Why</b>{}</div>".format(objective)
-                        if objective else ""
-                    )
+                    else:
+                        # No spray/fertilizer to apply — fill the slot with a
+                        # faint watermark of the category icon instead of
+                        # leaving it empty, so every card in a row keeps the
+                        # same visual weight.
+                        badge_block = (
+                            "<div class='act-action-badge-blank' style='background:{s}; border-color:{a}33;'>"
+                            "<span style='color:{a};'>{icon}</span>"
+                            "</div>"
+                        ).format(s=soft, a=acc, icon=meta["icon"])
 
                     card_html = "".join([
                         "<div class='act-card' style='{}'>".format(card_style),
@@ -526,7 +551,6 @@ for tab_idx, tab in enumerate(tabs):
                         "<div class='act-meta'><span class='act-cat-tag' style='color:{}'>{}</span></div>".format(acc, meta["label"]),
                         "</div></div>",
                         badge_block,
-                        obj_block,
                         "<div class='act-spacer'></div>",
                         "<div class='act-status-row'><div class='act-status status-{}'>{}</div></div>".format(eff_status, status_label),
                         "</div>",
