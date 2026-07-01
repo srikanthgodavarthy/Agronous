@@ -362,166 +362,243 @@ for tab_idx, tab in enumerate(tabs):
         for week_num, group in groupby(sorted_acts, key=lambda a: _week_num(a["activity_date"], sowing_date)):
             items = list(group)
             wlabel = _week_label(sowing_date, items[0]["activity_date"])
-            week_das = items[len(items) // 2]["das"]  # representative DAS for the week
+            week_das = items[len(items) // 2]["das"]
 
             with session_scope() as session:
                 week_stage = current_stage_name(session, ctx["crop_template_version_id"], week_das)
 
-            st.markdown(f"<div class='week-pill'>📅 {wlabel}</div>", unsafe_allow_html=True)
-            if week_stage:
-                st.markdown(f"<div class='stage-line'>Current Stage: <b>{week_stage}</b></div>", unsafe_allow_html=True)
+            # ── Week Brief: summary counts per category for quick scanning ──
+            from collections import Counter
+            cat_counts: Counter = Counter()
+            overdue_count = 0
+            for it in items:
+                es = _effective_status(it, today)
+                if es not in ("COMPLETED", "SKIPPED"):
+                    cat_counts[it["category"]] += 1
+                if es == "OVERDUE":
+                    overdue_count += 1
 
-            # Render each card in its own Streamlit column so the action
-            # buttons (✓ / ⏭ / ⓘ) sit inside the same column as the card,
-            # visually contained within the card boundary.
-            cols = st.columns(min(len(items), 6))
-            for col, row in zip(cols, items):
-                eff_status   = _effective_status(row, today)
-                meta         = CATEGORY_META.get(row["category"], CATEGORY_META["OTHER"])
-                date_str     = row["activity_date"].strftime("%d %b")
-                hint         = _get_hint(row["name"], row["remarks"], row["category"])
-                parsed       = _parse_remarks(row["remarks"])
-                objective    = parsed.get("Objective") or parsed.get("Purpose") or parsed.get("Benefit") or parsed.get("Notes") or ""
-                status_label = {"OVERDUE": "Overdue"}.get(eff_status, eff_status.title())
-                opacity      = STATUS_OPACITY.get(eff_status, "1")
-
-                # Category tint drives the whole card; status only controls border
-                border_color = STATUS_RING.get(eff_status, STATUS_RING["PENDING"])
-                card_style = (
-                    f"background:{meta['tint']}; "
-                    f"border-color:{border_color}; "
-                    f"opacity:{opacity};"
+            # Build the summary chips: only actionable (not-done) categories
+            chip_order = ["SPRAY", "FERTILIZER", "IRRIGATION", "WEEDING",
+                          "LAND_PREPARATION", "SOWING", "HARVEST", "OTHER"]
+            chips_html = []
+            for cat in chip_order:
+                cnt = cat_counts.get(cat, 0)
+                if cnt == 0:
+                    continue
+                m = CATEGORY_META[cat]
+                chips_html.append(
+                    "<div style='display:inline-flex;align-items:center;gap:5px;"
+                    "background:{soft};border:1.5px solid {acc}44;"
+                    "border-radius:8px;padding:5px 10px;margin:2px;'>"
+                    "<span style='font-size:14px'>{icon}</span>"
+                    "<span style='font-size:11px;font-weight:700;color:{acc}'>"
+                    "{cnt} {label}</span>"
+                    "</div>".format(
+                        soft=m["soft"], acc=m["accent"],
+                        icon=m["icon"], cnt=cnt, label=m["label"]
+                    )
                 )
 
-                # ── Solid-fill action badge — the #1 thing a farmer reads.
-                # White text on category accent so it pops regardless of card tint.
-                product = parsed.get("Product") or (hint["combo"] if hint else "")
-                dose    = parsed.get("Dose") or (hint["dose"] if hint else "")
-                badge_block = ""
-                if row["category"] in ACTIONABLE_CATS and (product or dose):
-                    badge_tag = "🧴 SPRAY · APPLY NOW" if row["category"] == "SPRAY" else "🌱 FERTILIZER · APPLY"
-                    acc = meta["accent"]
-                    badge_block = "".join([
-                        "<div class='act-action-badge' style='background:{acc}; box-shadow:0 2px 8px {acc}55;'>".format(acc=acc),
-                        "<span class='tag'>{}</span>".format(badge_tag),
-                        "<div class='product'>{}</div>".format(product) if product else "",
-                        "<div class='dose'>{}</div>".format(dose) if dose else "",
+            overdue_banner = ""
+            if overdue_count:
+                overdue_banner = (
+                    "<div style='display:inline-flex;align-items:center;gap:6px;"
+                    "background:#FBE3DF;border:1.5px solid #D8503A66;"
+                    "border-radius:8px;padding:5px 12px;margin:2px;'>"
+                    "<span style='font-size:14px'>⚠️</span>"
+                    "<span style='font-size:11px;font-weight:800;color:#C13E2A'>"
+                    "{} OVERDUE</span></div>".format(overdue_count)
+                )
+
+            total_done  = sum(1 for it in items if it["status"] == "COMPLETED")
+            total_items = len(items)
+            pct = int(total_done / total_items * 100) if total_items else 0
+            bar_color   = "#1F7A41" if pct == 100 else "#2F5F45"
+
+            week_brief_html = """
+<div style="
+    background:#FFFFFF;
+    border:1.5px solid #D5CCB8;
+    border-radius:14px;
+    padding:16px 20px 14px 20px;
+    margin:20px 0 14px 0;
+    box-shadow:0 2px 8px rgba(30,25,15,0.06);
+">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+    <div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+        <div style="
+            background:linear-gradient(135deg,#2F5F45,#21462F);
+            color:#FFFFFF;font-size:11px;font-weight:800;
+            letter-spacing:0.08em;text-transform:uppercase;
+            padding:4px 12px;border-radius:6px;
+            box-shadow:0 2px 6px rgba(33,70,47,0.30);
+        ">📅 {wlabel}</div>
+        {overdue_banner}
+      </div>
+      {stage_html}
+    </div>
+    <div style="text-align:right;min-width:80px;">
+      <div style="font-size:22px;font-weight:800;color:{bar_color};line-height:1">{pct}%</div>
+      <div style="font-size:10px;color:#9A9485;font-weight:600;margin-top:1px;">{done}/{total} done</div>
+    </div>
+  </div>
+  <div style="
+    background:#EDE6D6;border-radius:4px;height:4px;margin:10px 0 12px 0;overflow:hidden;
+  ">
+    <div style="width:{pct}%;background:{bar_color};height:4px;border-radius:4px;
+    transition:width 0.4s ease;"></div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:0;">
+    {chips}
+    {no_action}
+  </div>
+</div>""".format(
+                wlabel=wlabel,
+                overdue_banner=overdue_banner,
+                stage_html=(
+                    "<div style='font-size:13px;color:#6B6456;font-weight:500;'>"
+                    "Stage: <b style='color:#2F5F45'>{}</b></div>".format(week_stage)
+                ) if week_stage else "",
+                bar_color=bar_color,
+                pct=pct,
+                done=total_done,
+                total=total_items,
+                chips="".join(chips_html),
+                no_action=(
+                    "<div style='font-size:11px;color:#9A9485;font-style:italic;"
+                    "padding:6px 4px;'>All activities completed this week ✓</div>"
+                ) if not chips_html else "",
+            )
+            st.markdown(week_brief_html, unsafe_allow_html=True)
+
+            # ── Cards: rows of 4 so each card gets ~280px on desktop ──────
+            ROW_SIZE = 4
+            for row_start in range(0, len(items), ROW_SIZE):
+                row_items = items[row_start : row_start + ROW_SIZE]
+                cols = st.columns(len(row_items))
+
+                for col, row in zip(cols, row_items):
+                    eff_status   = _effective_status(row, today)
+                    meta         = CATEGORY_META.get(row["category"], CATEGORY_META["OTHER"])
+                    date_str     = row["activity_date"].strftime("%d %b")
+                    hint         = _get_hint(row["name"], row["remarks"], row["category"])
+                    parsed       = _parse_remarks(row["remarks"])
+                    objective    = parsed.get("Objective") or parsed.get("Purpose") or parsed.get("Benefit") or parsed.get("Notes") or ""
+                    status_label = {"OVERDUE": "Overdue"}.get(eff_status, eff_status.title())
+                    opacity      = STATUS_OPACITY.get(eff_status, "1")
+                    border_color = STATUS_RING.get(eff_status, STATUS_RING["PENDING"])
+                    acc          = meta["accent"]
+                    soft         = meta["soft"]
+                    tint         = meta["tint"]
+
+                    card_style = "background:{}; border-color:{}; opacity:{};".format(
+                        tint, border_color, opacity
+                    )
+
+                    product = parsed.get("Product") or (hint["combo"] if hint else "")
+                    dose    = parsed.get("Dose") or (hint["dose"] if hint else "")
+                    badge_block = ""
+                    if row["category"] in ACTIONABLE_CATS and (product or dose):
+                        badge_tag = "🧴 SPRAY · APPLY NOW" if row["category"] == "SPRAY" else "🌱 FERTILIZER · APPLY"
+                        badge_block = "".join([
+                            "<div class='act-action-badge' style='background:{a}; box-shadow:0 2px 8px {a}55;'>".format(a=acc),
+                            "<span class='tag'>{}</span>".format(badge_tag),
+                            "<div class='product'>{}</div>".format(product) if product else "",
+                            "<div class='dose'>{}</div>".format(dose) if dose else "",
+                            "</div>",
+                        ])
+
+                    obj_block = (
+                        "<div class='act-objective'><b>Why</b>{}</div>".format(objective)
+                        if objective else ""
+                    )
+
+                    card_html = "".join([
+                        "<div class='act-card' style='{}'>".format(card_style),
+                        "<div class='act-card-top'>",
+                        "<div class='act-icon' style='background:{}'>{}</div>".format(soft, meta["icon"]),
+                        "<div style='flex:1; min-width:0;'>",
+                        "<div class='act-name'>{}</div>".format(row["name"]),
+                        "<div class='act-meta'>{} &nbsp;·&nbsp; DAS {}</div>".format(date_str, row["das"]),
+                        "<div class='act-meta'><span class='act-cat-tag' style='color:{}'>{}</span></div>".format(acc, meta["label"]),
+                        "</div></div>",
+                        badge_block,
+                        obj_block,
+                        "<div class='act-spacer'></div>",
+                        "<div class='act-status-row'><div class='act-status status-{}'>{}</div></div>".format(eff_status, status_label),
                         "</div>",
                     ])
 
-                obj_block = (
-                    f"<div class='act-objective'><b>Why</b>{objective}</div>"
-                    if objective else ""
-                )
-
-                acc  = meta["accent"]
-                soft = meta["soft"]
-                card_html = "".join([
-                    "<div class='act-card' style='{}'>".format(card_style),
-                    "<div class='act-card-top'>",
-                    "<div class='act-icon' style='background:{}'>{}</div>".format(soft, meta["icon"]),
-                    "<div style='flex:1; min-width:0;'>",
-                    "<div class='act-name'>{}</div>".format(row["name"]),
-                    "<div class='act-meta'>{} &nbsp;·&nbsp; DAS {}</div>".format(date_str, row["das"]),
-                    "<div class='act-meta'><span class='act-cat-tag' style='color:{}'>{}</span></div>".format(acc, meta["label"]),
-                    "</div>",
-                    "</div>",
-                    badge_block,
-                    obj_block,
-                    "<div class='act-spacer'></div>",
-                    "<div class='act-status-row'><div class='act-status status-{}'>{}</div></div>".format(eff_status, status_label),
-                    "</div>",
-                ])
-
-                with col:
-                    with st.container(border=True):
-                        st.markdown(card_html, unsafe_allow_html=True)
-                        st.markdown(
-                            "<hr style='margin:6px 0 4px 0; border:none; border-top:1px solid {}33'>".format(acc),
-                            unsafe_allow_html=True,
-                        )
-                        b1, b2, b3 = st.columns(3)
-                        if b1.button("✓", key=f"done_{tab_idx}_{row['id']}", help="Mark complete", use_container_width=True):
-                            with session_scope() as session:
-                                act = schedule_repo.get_activity(session, row["id"])
-                                if act:
-                                    schedule_repo.mark_complete(session, act)
-                            st.rerun()
-                        if b2.button("⏭", key=f"skip_{tab_idx}_{row['id']}", help="Skip", use_container_width=True):
-                            with session_scope() as session:
-                                act = schedule_repo.get_activity(session, row["id"])
-                                if act:
-                                    schedule_repo.mark_skipped(session, act)
-                            st.rerun()
-                        detail_key = f"detail_{row['id']}"
-                        if b3.button("ⓘ", key=f"info_{tab_idx}_{row['id']}", help="Details", use_container_width=True):
-                            st.session_state[detail_key] = not st.session_state.get(detail_key, False)
-                            st.rerun()
-
-                    # ── Detail drawer — category-accented panel ──────────────
-                    if st.session_state.get(f"detail_{row['id']}"):
-                        parsed2     = _parse_remarks(row["remarks"])
-                        hint2       = _get_hint(row["name"], row["remarks"], row["category"])
-                        product2    = parsed2.get("Product") or (hint2["combo"] if hint2 else "")
-                        composition = parsed2.get("Composition", "")
-                        dose2       = parsed2.get("Dose") or (hint2["dose"] if hint2 else "")
-                        water       = parsed2.get("Water", "")
-                        timing      = parsed2.get("Timing", "")
-                        objective2  = parsed2.get("Objective") or parsed2.get("Benefit", "")
-                        why         = parsed2.get("Why") or parsed2.get("Purpose", "")
-                        precautions = parsed2.get("Precautions") or (hint2["note"] if hint2 else "")
-
-                        detail_rows = []
-                        if product2:
-                            label = product2 + (f" ({composition})" if composition else "")
-                            detail_rows.append(("🧪", "Product", label, meta["accent"]))
-                        if dose2:
-                            detail_rows.append(("📦", "Dose", dose2, meta["accent"]))
-                        if water:
-                            detail_rows.append(("💧", "Water", water, "#2E78B7"))
-                        if timing:
-                            detail_rows.append(("⏰", "Timing", timing, "#8A5A2B"))
-                        if objective2:
-                            detail_rows.append(("🎯", "Objective", objective2, meta["accent"]))
-
-                        detail_html = [
-                            f"<div style='border-radius:12px; background:{meta['tint']}; "
-                            f"border:1.5px solid {meta['accent']}44; padding:14px; margin-top:6px;'>",
-                            f"<div style='font-size:10px; font-weight:800; letter-spacing:0.06em; "
-                            f"text-transform:uppercase; color:{meta['accent']}; margin-bottom:10px;'>"
-                            f"{meta['icon']} {meta['label']} — Details</div>",
-                        ]
-                        for icon, lbl, val, clr in detail_rows:
-                            detail_html.append(
-                                f"<div style='margin-bottom:8px;'>"
-                                f"<div style='font-size:9px; font-weight:800; letter-spacing:0.05em; "
-                                f"text-transform:uppercase; color:{clr}; opacity:0.75;'>{icon} {lbl}</div>"
-                                f"<div style='font-size:12px; font-weight:600; color:#221F18; "
-                                f"line-height:1.4; margin-top:1px;'>{val}</div>"
-                                f"</div>"
+                    with col:
+                        with st.container(border=True):
+                            st.markdown(card_html, unsafe_allow_html=True)
+                            st.markdown(
+                                "<hr style='margin:6px 0 4px 0;border:none;border-top:1px solid {}33'>".format(acc),
+                                unsafe_allow_html=True,
                             )
-                        if why or precautions:
-                            detail_html.append(
-                                f"<div style='margin-top:4px; padding-top:10px; "
-                                f"border-top:1px solid {meta['accent']}33;'>"
-                            )
-                            if why:
-                                detail_html.append(
-                                    f"<div style='font-size:9px; font-weight:800; letter-spacing:0.05em; "
-                                    f"text-transform:uppercase; color:{meta['accent']}; opacity:0.75;'>💡 Why</div>"
-                                    f"<div style='font-size:11.5px; color:#5E594C; line-height:1.5; margin-top:2px;'>{why}</div>"
-                                )
-                            if precautions:
-                                detail_html.append(
-                                    f"<div style='margin-top:8px; font-size:9px; font-weight:800; "
-                                    f"letter-spacing:0.05em; text-transform:uppercase; color:#C13E2A; opacity:0.85;'>⚠️ Precautions</div>"
-                                    f"<div style='font-size:11.5px; color:#5E594C; line-height:1.5; margin-top:2px;'>{precautions}</div>"
-                                )
-                            detail_html.append("</div>")
-                        detail_html.append("</div>")
+                            b1, b2, b3 = st.columns(3)
+                            if b1.button("✓", key="done_{}_{}".format(tab_idx, row["id"]), help="Mark complete", use_container_width=True):
+                                with session_scope() as session:
+                                    act = schedule_repo.get_activity(session, row["id"])
+                                    if act:
+                                        schedule_repo.mark_complete(session, act)
+                                st.rerun()
+                            if b2.button("⏭", key="skip_{}_{}".format(tab_idx, row["id"]), help="Skip", use_container_width=True):
+                                with session_scope() as session:
+                                    act = schedule_repo.get_activity(session, row["id"])
+                                    if act:
+                                        schedule_repo.mark_skipped(session, act)
+                                st.rerun()
+                            detail_key = "detail_{}".format(row["id"])
+                            if b3.button("ⓘ", key="info_{}_{}".format(tab_idx, row["id"]), help="Details", use_container_width=True):
+                                st.session_state[detail_key] = not st.session_state.get(detail_key, False)
+                                st.rerun()
 
-                        with col:
-                            st.markdown("".join(detail_html), unsafe_allow_html=True)
+                        # ── Detail drawer ────────────────────────────────────
+                        if st.session_state.get("detail_{}".format(row["id"])):
+                            parsed2     = _parse_remarks(row["remarks"])
+                            hint2       = _get_hint(row["name"], row["remarks"], row["category"])
+                            product2    = parsed2.get("Product") or (hint2["combo"] if hint2 else "")
+                            composition = parsed2.get("Composition", "")
+                            dose2       = parsed2.get("Dose") or (hint2["dose"] if hint2 else "")
+                            water       = parsed2.get("Water", "")
+                            timing      = parsed2.get("Timing", "")
+                            objective2  = parsed2.get("Objective") or parsed2.get("Benefit", "")
+                            why         = parsed2.get("Why") or parsed2.get("Purpose", "")
+                            precautions = parsed2.get("Precautions") or (hint2["note"] if hint2 else "")
+
+                            detail_rows = []
+                            if product2:
+                                detail_rows.append(("🧪", "Product", product2 + (" ({})".format(composition) if composition else ""), acc))
+                            if dose2:
+                                detail_rows.append(("📦", "Dose", dose2, acc))
+                            if water:
+                                detail_rows.append(("💧", "Water", water, "#2E78B7"))
+                            if timing:
+                                detail_rows.append(("⏰", "Timing", timing, "#8A5A2B"))
+                            if objective2:
+                                detail_rows.append(("🎯", "Objective", objective2, acc))
+
+                            d = ["<div style='border-radius:12px;background:{t};border:1.5px solid {a}44;padding:14px;margin-top:6px;'>".format(t=tint, a=acc)]
+                            d.append("<div style='font-size:10px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:{};margin-bottom:10px;'>{} {} — Details</div>".format(acc, meta["icon"], meta["label"]))
+                            for icon, lbl, val, clr in detail_rows:
+                                d.append(
+                                    "<div style='margin-bottom:8px;'>"
+                                    "<div style='font-size:9px;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;color:{clr};opacity:0.8;'>{icon} {lbl}</div>"
+                                    "<div style='font-size:12px;font-weight:600;color:#221F18;line-height:1.4;margin-top:1px;'>{val}</div>"
+                                    "</div>".format(clr=clr, icon=icon, lbl=lbl, val=val)
+                                )
+                            if why or precautions:
+                                d.append("<div style='margin-top:4px;padding-top:10px;border-top:1px solid {}33;'>".format(acc))
+                                if why:
+                                    d.append("<div style='font-size:9px;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;color:{};opacity:0.75;'>💡 Why</div><div style='font-size:11.5px;color:#5E594C;line-height:1.5;margin-top:2px;'>{}</div>".format(acc, why))
+                                if precautions:
+                                    d.append("<div style='margin-top:8px;font-size:9px;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;color:#C13E2A;opacity:0.85;'>⚠️ Precautions</div><div style='font-size:11.5px;color:#5E594C;line-height:1.5;margin-top:2px;'>{}</div>".format(precautions))
+                                d.append("</div>")
+                            d.append("</div>")
+                            st.markdown("".join(d), unsafe_allow_html=True)
 
 # ── Add custom activity ────────────────────────────────────────────────────────
 st.divider()
