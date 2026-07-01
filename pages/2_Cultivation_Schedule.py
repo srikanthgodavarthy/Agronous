@@ -33,6 +33,17 @@ CATEGORY_META = {
 # every card in this category (they never carry a product/dose badge).
 ICON_REDUNDANT_CATS = {"IRRIGATION", "WEEDING", "LAND_PREPARATION", "SOWING", "HARVEST"}
 
+# Same palette as the card's outer-shell status colors (defined in CSS as
+# :has(.card-status-X) rules below) -- reused here in Python because the
+# detail drawer is a plain st.markdown block outside the border-wrapper,
+# so it needs its own inline background rather than a CSS selector.
+STATUS_DRAWER_FILL = {
+    "PENDING":   "#FDF8ED",
+    "COMPLETED": "#EDF7F0",
+    "SKIPPED":   "#F2F1ED",
+    "OVERDUE":   "#FCEDEA",
+}
+
 # Cards that need an urgent, can't-miss "what to apply" badge on the face —
 # this is the #1 thing a farmer needs to act on without tapping in.
 ACTIONABLE_CATS = {"SPRAY", "FERTILIZER"}
@@ -105,6 +116,26 @@ def _parse_remarks(remarks: str) -> dict[str, str]:
     if parts[0].strip():
         out["Notes"] = parts[0].strip()
     return out
+
+
+# Some seed/remarks data fills a field with a literal "no answer" placeholder
+# instead of leaving it blank -- e.g. a Field Scouting activity mistakenly
+# tagged Product: "Field Scouting." / Dose: "Not applicable." These must
+# never be treated as a real product/dose (they'd badge a monitoring
+# activity as "SPRAY · APPLY NOW" with nonsense contents). Any field value
+# that reduces to one of these tokens is treated as empty everywhere.
+_NON_ANSWER_TOKENS = {
+    "not applicable", "na", "n/a", "n.a.", "none", "nil", "-", "--", "tbd", "n/a.",
+}
+
+
+def _clean_value(value: str) -> str:
+    if not value:
+        return ""
+    stripped = value.strip().rstrip(".").strip().lower()
+    if stripped in _NON_ANSWER_TOKENS:
+        return ""
+    return value.strip()
 
 
 def _quick_line(name: str, remarks: str, category: str | None, hint: dict | None) -> str:
@@ -553,9 +584,9 @@ for tab_idx, tab in enumerate(tabs):
                     soft         = meta["soft"]
                     tint         = meta["tint"]
 
-                    product = parsed.get("Product") or (hint["combo"] if hint else "")
-                    dose    = parsed.get("Dose") or (hint["dose"] if hint else "")
-                    if row["category"] in ACTIONABLE_CATS and (product or dose):
+                    product = _clean_value(parsed.get("Product") or (hint["combo"] if hint else ""))
+                    dose    = _clean_value(parsed.get("Dose") or (hint["dose"] if hint else ""))
+                    if row["category"] in ACTIONABLE_CATS and product and dose:
                         badge_tag = "🧴 SPRAY · APPLY NOW" if row["category"] == "SPRAY" else "🌱 FERTILIZER · APPLY"
                         badge_block = "".join([
                             "<div class='act-action-badge' style='background:{a}; box-shadow:0 2px 8px {a}55;'>".format(a=acc),
@@ -633,14 +664,14 @@ for tab_idx, tab in enumerate(tabs):
                         if st.session_state.get("detail_{}".format(row["id"])):
                             parsed2     = _parse_remarks(row["remarks"])
                             hint2       = _get_hint(row["name"], row["remarks"], row["category"])
-                            product2    = parsed2.get("Product") or (hint2["combo"] if hint2 else "")
-                            composition = parsed2.get("Composition", "")
-                            dose2       = parsed2.get("Dose") or (hint2["dose"] if hint2 else "")
-                            water       = parsed2.get("Water", "")
-                            timing      = parsed2.get("Timing", "")
-                            objective2  = parsed2.get("Objective") or parsed2.get("Benefit", "")
-                            why         = parsed2.get("Why") or parsed2.get("Purpose", "")
-                            precautions = parsed2.get("Precautions") or (hint2["note"] if hint2 else "")
+                            product2    = _clean_value(parsed2.get("Product") or (hint2["combo"] if hint2 else ""))
+                            composition = _clean_value(parsed2.get("Composition", ""))
+                            dose2       = _clean_value(parsed2.get("Dose") or (hint2["dose"] if hint2 else ""))
+                            water       = _clean_value(parsed2.get("Water", ""))
+                            timing      = _clean_value(parsed2.get("Timing", ""))
+                            objective2  = _clean_value(parsed2.get("Objective") or parsed2.get("Benefit", ""))
+                            why         = _clean_value(parsed2.get("Why") or parsed2.get("Purpose", ""))
+                            precautions = _clean_value(parsed2.get("Precautions") or (hint2["note"] if hint2 else ""))
 
                             detail_rows = []
                             if product2:
@@ -654,7 +685,7 @@ for tab_idx, tab in enumerate(tabs):
                             if objective2:
                                 detail_rows.append(("🎯", "Objective", objective2, acc))
 
-                            d = ["<div style='border-radius:12px;background:{t};border:1.5px solid {a}44;padding:14px;margin-top:6px;'>".format(t=tint, a=acc)]
+                            d = ["<div style='border-radius:12px;background:{bg};border:1.5px solid {a}44;padding:14px;margin-top:6px;'>".format(bg=STATUS_DRAWER_FILL.get(eff_status, STATUS_DRAWER_FILL["PENDING"]), a=acc)]
                             d.append("<div style='font-size:10px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:{};margin-bottom:10px;'>{} {} — Details</div>".format(acc, meta["icon"], meta["label"]))
                             for icon, lbl, val, clr in detail_rows:
                                 d.append(
