@@ -21,7 +21,7 @@ CATEGORY_META = {
     "IRRIGATION":       {"icon": "💧", "accent": "#2E78B7", "soft": "#E4F0FA", "tint": "#F2F8FD", "label": "Irrigation"},
     "FERTILIZER":       {"icon": "🌱", "accent": "#2F8F4E", "soft": "#DEF2E5", "tint": "#F1FAF4", "label": "Fertilizer"},
     "SPRAY":            {"icon": "🧴", "accent": "#9B3FB5", "soft": "#F1E1F7", "tint": "#FAF2FC", "label": "Spray / Pest"},
-    "WEEDING":          {"icon": "🧹", "accent": "#C2700E", "soft": "#F8E7CC", "tint": "#FCF4E7", "label": "Weeding"},
+    "WEEDING":          {"icon": "✂️", "accent": "#C2700E", "soft": "#F8E7CC", "tint": "#FCF4E7", "label": "Weeding"},
     "LAND_PREPARATION": {"icon": "🚜", "accent": "#8A5A2B", "soft": "#EFE0CE", "tint": "#F8F1E7", "label": "Land Prep"},
     "SOWING":           {"icon": "🌰", "accent": "#3E8E4F", "soft": "#E0F2E3", "tint": "#F2FAF3", "label": "Sowing"},
     "HARVEST":          {"icon": "🧺", "accent": "#B68A0E", "soft": "#F7EAC4", "tint": "#FCF6E3", "label": "Harvest"},
@@ -332,10 +332,6 @@ div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stTooltipIcon"] {
 .act-card-top {
     display: flex; align-items: flex-start; gap: 10px;
     padding: 14px 14px 0 14px;
-    /* Fixed header height: icon row + 3-line name + 2 meta rows. Pins the
-       badge slot below to the same starting Y on every card, independent
-       of whether the face icon is present/redundant for this category. */
-    min-height: 96px;
 }
 .act-card-top:has(> .act-icon) { gap: 10px; }
 .act-card-top:not(:has(> .act-icon)) { gap: 0; }
@@ -344,20 +340,26 @@ div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stTooltipIcon"] {
     display: flex; align-items: center; justify-content: center;
     box-shadow: 0 1px 3px rgba(30,25,15,0.08);
 }
+.act-name-wrap { flex: 1 1 auto; min-width: 0; }
 .act-name {
     font-size: 13px; font-weight: 700; color: #221F18;
     line-height: 1.3; padding-top: 3px;
-    min-height: 40.5px; /* exactly 3 lines at this size — keeps the badge/
-                           watermark box below starting at the same height
-                           on every card, whether the title wraps to 1, 2,
-                           or 3 lines */
+    min-height: 40.5px; /* exactly 3 lines at this size — keeps the meta
+                           row below starting at the same height on every
+                           card, whether the title wraps to 1, 2, or 3 lines */
     display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
     overflow: hidden;
 }
+/* Date + category live in their own full-width row BELOW the icon/name
+   row, not beside the icon — so text-align:center centers against the
+   whole card, not just the leftover width next to the icon. Fixes cards
+   drifting left/right depending on whether that category shows a face icon. */
+.act-meta-row {
+    padding: 8px 14px 0 14px;
+    text-align: center;
+}
 .act-meta {
-    font-size: 10.5px; color: #756F60; line-height: 1.5; font-weight: 500;
-    text-align: center; /* horizontally align date and category rows so
-                            every card's middle badge starts at the same X */
+    font-size: 10.5px; color: #756F60; line-height: 1.6; font-weight: 500;
 }
 .act-cat-tag {
     font-size: 9.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
@@ -365,12 +367,11 @@ div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stTooltipIcon"] {
 
 /* ── The "what to apply" badge — solid accent fill, can't-miss ───────── */
 .act-action-badge {
-    margin: 10px 14px 0 14px; border-radius: 9px;
-    padding: 8px 10px; box-sizing: border-box;
+    margin: 12px 14px 0 14px; border-radius: 9px;
+    padding: 10px; box-sizing: border-box;
     color: #FFFFFF;
-    min-height: 72px; /* matches .act-action-badge-blank so every card's
-                          middle slot is the same size regardless of
-                          content */
+    flex: 1 1 auto; min-height: 72px; /* grows to use the card's spare
+                          vertical space instead of leaving it blank below */
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     text-align: center;
@@ -392,18 +393,20 @@ div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stTooltipIcon"] {
 
 /* ── Blank slot for non-actionable cards (no spray/fertilizer to apply) —
    watermarks the category icon in the same footprint the badge would
-   occupy, so every card in a row keeps the same visual weight. ───────── */
+   occupy, so every card in a row keeps the same visual weight. Also grows
+   to fill the card's remaining vertical space instead of parking a big
+   empty gap between it and the status pill. ──────────────────────────── */
 .act-action-badge-blank {
-    margin: 10px 14px 0 14px; border-radius: 9px;
-    min-height: 72px; box-sizing: border-box;
+    margin: 12px 14px 0 14px; border-radius: 9px;
+    flex: 1 1 auto; min-height: 72px; box-sizing: border-box;
     border: 1px solid;
     display: flex; align-items: center; justify-content: center;
 }
 .act-action-badge-blank span {
-    font-size: 28px; opacity: 0.62;
+    font-size: 32px; opacity: 0.62;
 }
 
-.act-spacer { flex: 1; min-height: 8px; }
+.act-spacer { display: none; } /* badge/blank now grows to fill this role */
 .act-status-row { display: flex; justify-content: flex-end; padding: 0 14px 12px 14px; }
 .act-status {
     font-size: 9px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
@@ -660,13 +663,14 @@ for tab_idx, tab in enumerate(tabs):
                         "<span class='card-status-marker card-status-{}'></span>".format(eff_status),
                         "<div class='act-card-top'>",
                         icon_block,
-                        "<div style='flex:1; min-width:0;'>",
+                        "<div class='act-name-wrap'>",
                         "<div class='act-name'>{}</div>".format(row["name"]),
+                        "</div></div>",
+                        "<div class='act-meta-row'>",
                         "<div class='act-meta'>{} &nbsp;·&nbsp; DAS {}</div>".format(date_str, row["das"]),
                         "<div class='act-meta'><span class='act-cat-tag' style='color:{}'>{}</span></div>".format(acc, meta["label"]),
-                        "</div></div>",
+                        "</div>",
                         badge_block,
-                        "<div class='act-spacer'></div>",
                         "<div class='act-status-row'><div class='act-status status-{}'>{}</div></div>".format(eff_status, status_label),
                         "</div>",
                     ])
