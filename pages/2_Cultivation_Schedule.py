@@ -17,25 +17,32 @@ from services.schedule_engine import calculate_das, current_stage_name
 st.set_page_config(page_title="Cultivation Schedule", page_icon="🌿", layout="wide")
 
 CATEGORY_META = {
-    "IRRIGATION":       {"icon": "💧", "accent": "#2E78B7", "soft": "#EAF3FB", "label": "Irrigation"},
-    "FERTILIZER":       {"icon": "🌱", "accent": "#2F8F4E", "soft": "#EAF7EE", "label": "Fertilizer"},
-    "SPRAY":            {"icon": "🧴", "accent": "#9B3FB5", "soft": "#F6ECFA", "label": "Spray / Pest"},
-    "WEEDING":          {"icon": "🌾", "accent": "#C2700E", "soft": "#FBF1E4", "label": "Weeding"},
-    "LAND_PREPARATION": {"icon": "🚜", "accent": "#8A5A2B", "soft": "#F4ECE2", "label": "Land Prep"},
-    "SOWING":           {"icon": "🌰", "accent": "#3E8E4F", "soft": "#ECF7EE", "label": "Sowing"},
-    "HARVEST":          {"icon": "🌾", "accent": "#B68A0E", "soft": "#FAF4E1", "label": "Harvest"},
-    "OTHER":            {"icon": "📋", "accent": "#5B6470", "soft": "#EFF1F3", "label": "Other"},
+    "IRRIGATION":       {"icon": "💧", "accent": "#2E78B7", "soft": "#E4F0FA", "tint": "#F2F8FD", "label": "Irrigation"},
+    "FERTILIZER":       {"icon": "🌱", "accent": "#2F8F4E", "soft": "#DEF2E5", "tint": "#F1FAF4", "label": "Fertilizer"},
+    "SPRAY":            {"icon": "🧴", "accent": "#9B3FB5", "soft": "#F1E1F7", "tint": "#FAF2FC", "label": "Spray / Pest"},
+    "WEEDING":          {"icon": "🌾", "accent": "#C2700E", "soft": "#F8E7CC", "tint": "#FCF4E7", "label": "Weeding"},
+    "LAND_PREPARATION": {"icon": "🚜", "accent": "#8A5A2B", "soft": "#EFE0CE", "tint": "#F8F1E7", "label": "Land Prep"},
+    "SOWING":           {"icon": "🌰", "accent": "#3E8E4F", "soft": "#E0F2E3", "tint": "#F2FAF3", "label": "Sowing"},
+    "HARVEST":          {"icon": "🌾", "accent": "#B68A0E", "soft": "#F7EAC4", "tint": "#FCF6E3", "label": "Harvest"},
+    "OTHER":            {"icon": "📋", "accent": "#5B6470", "soft": "#E6E8EB", "tint": "#F4F5F6", "label": "Other"},
 }
 
 # Cards that need an urgent, can't-miss "what to apply" badge on the face —
 # this is the #1 thing a farmer needs to act on without tapping in.
 ACTIONABLE_CATS = {"SPRAY", "FERTILIZER"}
 
-STATUS_CARD_STYLE = {
-    "PENDING":   "background:#FFFFFF; border-color:#EDE6D6;",
-    "COMPLETED": "background:#FBFCFA; border-color:#D8E9DD;",
-    "SKIPPED":   "background:#FAFAF9; border-color:#E5E3DD;",
-    "OVERDUE":   "background:#FFFBFA; border-color:#F0C4BC;",
+# Status no longer controls card background (category color owns that now).
+# It only controls a subtle outer ring + the status pill, so OVERDUE still
+# reads as urgent and SKIPPED/COMPLETED still read as "done with", without
+# fighting the category color-coding.
+STATUS_RING = {
+    "PENDING":   "rgba(30,25,15,0.08)",
+    "COMPLETED": "rgba(31,122,65,0.35)",
+    "SKIPPED":   "rgba(30,25,15,0.08)",
+    "OVERDUE":   "#D8503A",
+}
+STATUS_OPACITY = {
+    "PENDING": "1", "COMPLETED": "1", "SKIPPED": "0.6", "OVERDUE": "1",
 }
 
 PRODUCT_HINTS = {
@@ -174,11 +181,36 @@ html, body, [class*="css"] { font-family: 'Inter', -apple-system, sans-serif; }
 }
 .stage-line b { color: #2F5F45; font-weight: 700; }
 
-/* ── Card shell ─────────────────────────────────────────────────────── */
+/* ── Equal-height cards across a row ──────────────────────────────────
+   Streamlit columns don't stretch by default, so a tall "spray" card
+   with a badge sits next to a short irrigation card and the action
+   buttons end up at different heights. Force every column in a row,
+   and every block inside it, to stretch to the row's tallest card. */
+div[data-testid="stHorizontalBlock"] {
+    align-items: stretch !important;
+}
+div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+    display: flex !important;
+    flex-direction: column !important;
+}
+div[data-testid="column"] > div[data-testid="stVerticalBlock"] {
+    flex: 1 1 auto;
+    display: flex; flex-direction: column;
+    height: 100%;
+}
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.act-card) {
+    flex: 1 1 auto; display: flex; flex-direction: column;
+    height: 100%; border-radius: 14px !important;
+}
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.act-card) > div {
+    flex: 1 1 auto; display: flex; flex-direction: column; height: 100%;
+}
+
+/* ── Card shell — tinted by category, not just accented ──────────────── */
 .act-card {
     border-radius: 14px; padding: 0;
-    display: flex; flex-direction: column;
-    border: 1px solid transparent;
+    display: flex; flex-direction: column; flex: 1 1 auto;
+    border: 1.5px solid transparent;
     min-height: 150px; position: relative; box-sizing: border-box;
     box-shadow: 0 1px 2px rgba(30,25,15,0.04), 0 4px 14px rgba(30,25,15,0.05);
 }
@@ -189,22 +221,24 @@ html, body, [class*="css"] { font-family: 'Inter', -apple-system, sans-serif; }
 .act-icon {
     flex: none; width: 36px; height: 36px; border-radius: 9px; font-size: 17px;
     display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 1px 3px rgba(30,25,15,0.08);
 }
 .act-name {
     font-size: 13px; font-weight: 700; color: #221F18;
     line-height: 1.3; padding-top: 3px;
 }
 .act-meta {
-    font-size: 10.5px; color: #9A9485; line-height: 1.5; font-weight: 500;
+    font-size: 10.5px; color: #756F60; line-height: 1.5; font-weight: 500;
 }
 .act-cat-tag {
-    font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    font-size: 9.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
 }
 
-/* ── The "what to apply" badge — bold, always visible, top priority ── */
+/* ── The "what to apply" badge — solid accent fill, can't-miss ───────── */
 .act-action-badge {
     margin: 10px 14px 0 14px; border-radius: 9px;
     padding: 8px 10px; box-sizing: border-box;
+    color: #FFFFFF;
 }
 .act-action-badge .tag {
     font-size: 8.5px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase;
@@ -214,16 +248,16 @@ html, body, [class*="css"] { font-family: 'Inter', -apple-system, sans-serif; }
     font-size: 12px; font-weight: 700; line-height: 1.35;
 }
 .act-action-badge .dose {
-    font-size: 11px; font-weight: 600; opacity: 0.85; margin-top: 1px;
+    font-size: 11px; font-weight: 600; opacity: 0.9; margin-top: 1px;
 }
 
 .act-objective {
-    font-size: 10.5px; color: #6B6456; text-align: left; line-height: 1.45;
+    font-size: 10.5px; color: #5E594C; text-align: left; line-height: 1.45;
     padding: 8px 14px 0 14px;
 }
 .act-objective b {
     display: block; font-size: 9px; letter-spacing: 0.05em; text-transform: uppercase;
-    color: #9A9485; margin-bottom: 2px; font-weight: 700;
+    color: #8C8676; margin-bottom: 2px; font-weight: 800;
 }
 .act-spacer { flex: 1; min-height: 8px; }
 .act-status-row { display: flex; justify-content: flex-end; padding: 0 14px 12px 14px; }
@@ -235,10 +269,10 @@ html, body, [class*="css"] { font-family: 'Inter', -apple-system, sans-serif; }
 .act-status::before {
     content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor;
 }
-.status-PENDING   { background: #FCF3DD; color: #966B0C; }
-.status-COMPLETED { background: #E1F2E6; color: #1F7A41; }
-.status-SKIPPED   { background: #EEEDE8; color: #79766C; }
-.status-OVERDUE   { background: #FBE3DF; color: #C13E2A; }
+.status-PENDING   { background: rgba(255,255,255,0.6); color: #966B0C; }
+.status-COMPLETED { background: rgba(255,255,255,0.7); color: #1F7A41; }
+.status-SKIPPED   { background: rgba(255,255,255,0.6); color: #79766C; }
+.status-OVERDUE   { background: #FFFFFF; color: #C13E2A; }
 
 /* ── card-wrapper: card + buttons share the same rounded shell ── */
 .card-wrapper {
@@ -343,29 +377,35 @@ for tab_idx, tab in enumerate(tabs):
             cols = st.columns(min(len(items), 6))
             for col, row in zip(cols, items):
                 eff_status   = _effective_status(row, today)
-                card_style   = STATUS_CARD_STYLE.get(eff_status, STATUS_CARD_STYLE["PENDING"])
                 meta         = CATEGORY_META.get(row["category"], CATEGORY_META["OTHER"])
                 date_str     = row["activity_date"].strftime("%d %b")
                 hint         = _get_hint(row["name"], row["remarks"], row["category"])
                 parsed       = _parse_remarks(row["remarks"])
                 objective    = parsed.get("Objective") or parsed.get("Purpose") or parsed.get("Benefit") or parsed.get("Notes") or ""
                 status_label = {"OVERDUE": "Overdue"}.get(eff_status, eff_status.title())
+                opacity      = STATUS_OPACITY.get(eff_status, "1")
 
-                # ── Action badge: the product + dose, always visible on the
-                # card face (not hidden behind the ⓘ button) for spray and
-                # fertilizer activities, since that's the one thing a farmer
-                # needs to read and act on at a glance.
+                # Category tint drives the whole card; status only controls border
+                border_color = STATUS_RING.get(eff_status, STATUS_RING["PENDING"])
+                card_style = (
+                    f"background:{meta['tint']}; "
+                    f"border-color:{border_color}; "
+                    f"opacity:{opacity};"
+                )
+
+                # ── Solid-fill action badge — the #1 thing a farmer reads.
+                # White text on category accent so it pops regardless of card tint.
                 product = parsed.get("Product") or (hint["combo"] if hint else "")
                 dose    = parsed.get("Dose") or (hint["dose"] if hint else "")
                 badge_block = ""
                 if row["category"] in ACTIONABLE_CATS and (product or dose):
-                    badge_tag = "🧴 SPRAY / APPLY" if row["category"] == "SPRAY" else "🌱 APPLY"
+                    badge_tag = "🧴 SPRAY · APPLY NOW" if row["category"] == "SPRAY" else "🌱 FERTILIZER · APPLY"
+                    acc = meta["accent"]
                     badge_block = "".join([
-                        f"<div class='act-action-badge' style='background:{meta['soft']}; "
-                        f"border:1px solid {meta['accent']}33; color:{meta['accent']};'>",
-                        f"<span class='tag'>{badge_tag}</span>",
-                        f"<div class='product'>{product}</div>" if product else "",
-                        f"<div class='dose'>{dose}</div>" if dose else "",
+                        "<div class='act-action-badge' style='background:{acc}; box-shadow:0 2px 8px {acc}55;'>".format(acc=acc),
+                        "<span class='tag'>{}</span>".format(badge_tag),
+                        "<div class='product'>{}</div>".format(product) if product else "",
+                        "<div class='dose'>{}</div>".format(dose) if dose else "",
                         "</div>",
                     ])
 
@@ -374,32 +414,30 @@ for tab_idx, tab in enumerate(tabs):
                     if objective else ""
                 )
 
+                acc  = meta["accent"]
+                soft = meta["soft"]
                 card_html = "".join([
-                    f"<div class='act-card' style='{card_style}'>",
+                    "<div class='act-card' style='{}'>".format(card_style),
                     "<div class='act-card-top'>",
-                    f"<div class='act-icon' style='background:{meta['soft']}'>{meta['icon']}</div>",
-                    "<div>",
-                    f"<div class='act-name'>{row['name']}</div>",
-                    f"<div class='act-meta'>{date_str} · DAS {row['das']} &nbsp;·&nbsp; "
-                    f"<span class='act-cat-tag' style='color:{meta['accent']}'>{meta['label']}</span></div>",
+                    "<div class='act-icon' style='background:{}'>{}</div>".format(soft, meta["icon"]),
+                    "<div style='flex:1; min-width:0;'>",
+                    "<div class='act-name'>{}</div>".format(row["name"]),
+                    "<div class='act-meta'>{} &nbsp;·&nbsp; DAS {}</div>".format(date_str, row["das"]),
+                    "<div class='act-meta'><span class='act-cat-tag' style='color:{}'>{}</span></div>".format(acc, meta["label"]),
                     "</div>",
                     "</div>",
                     badge_block,
                     obj_block,
                     "<div class='act-spacer'></div>",
-                    f"<div class='act-status-row'><div class='act-status status-{eff_status}'>{status_label}</div></div>",
+                    "<div class='act-status-row'><div class='act-status status-{}'>{}</div></div>".format(eff_status, status_label),
                     "</div>",
                 ])
 
                 with col:
-                    # st.container(border=True) is Streamlit's native card —
-                    # anything rendered inside it, including buttons, is
-                    # visually enclosed within the card border.
                     with st.container(border=True):
                         st.markdown(card_html, unsafe_allow_html=True)
                         st.markdown(
-                            "<hr style='margin:6px 0 4px 0; border:none; "
-                            "border-top:1px solid rgba(0,0,0,0.07)'>",
+                            "<hr style='margin:6px 0 4px 0; border:none; border-top:1px solid {}33'>".format(acc),
                             unsafe_allow_html=True,
                         )
                         b1, b2, b3 = st.columns(3)
@@ -420,42 +458,70 @@ for tab_idx, tab in enumerate(tabs):
                             st.session_state[detail_key] = not st.session_state.get(detail_key, False)
                             st.rerun()
 
-                    # Details panel — full emoji card shown below when ⓘ tapped.
+                    # ── Detail drawer — category-accented panel ──────────────
                     if st.session_state.get(f"detail_{row['id']}"):
-                        parsed = _parse_remarks(row["remarks"])
-                        hint   = _get_hint(row["name"], row["remarks"], row["category"])
+                        parsed2     = _parse_remarks(row["remarks"])
+                        hint2       = _get_hint(row["name"], row["remarks"], row["category"])
+                        product2    = parsed2.get("Product") or (hint2["combo"] if hint2 else "")
+                        composition = parsed2.get("Composition", "")
+                        dose2       = parsed2.get("Dose") or (hint2["dose"] if hint2 else "")
+                        water       = parsed2.get("Water", "")
+                        timing      = parsed2.get("Timing", "")
+                        objective2  = parsed2.get("Objective") or parsed2.get("Benefit", "")
+                        why         = parsed2.get("Why") or parsed2.get("Purpose", "")
+                        precautions = parsed2.get("Precautions") or (hint2["note"] if hint2 else "")
 
-                        # Build display values — prefer new structured fields,
-                        # fall back to PRODUCT_HINTS for legacy/custom activities.
-                        product     = parsed.get("Product") or (hint["combo"] if hint else "")
-                        composition = parsed.get("Composition", "")
-                        dose        = parsed.get("Dose") or (hint["dose"] if hint else "")
-                        water       = parsed.get("Water", "")
-                        timing      = parsed.get("Timing", "")
-                        objective   = parsed.get("Objective") or parsed.get("Benefit", "")
-                        why         = parsed.get("Why") or parsed.get("Purpose", "")
-                        precautions = parsed.get("Precautions") or (hint["note"] if hint else "")
+                        detail_rows = []
+                        if product2:
+                            label = product2 + (f" ({composition})" if composition else "")
+                            detail_rows.append(("🧪", "Product", label, meta["accent"]))
+                        if dose2:
+                            detail_rows.append(("📦", "Dose", dose2, meta["accent"]))
+                        if water:
+                            detail_rows.append(("💧", "Water", water, "#2E78B7"))
+                        if timing:
+                            detail_rows.append(("⏰", "Timing", timing, "#8A5A2B"))
+                        if objective2:
+                            detail_rows.append(("🎯", "Objective", objective2, meta["accent"]))
 
-                        with st.container(border=True):
-                            lines = []
-                            if product:
-                                lines.append(f"🧪 **Product**  \n{product}" + (f" ({composition})" if composition else ""))
-                            if dose:
-                                lines.append(f"📦 **Dose**  \n{dose}")
-                            if water:
-                                lines.append(f"💧 **Water**  \n{water}")
-                            if timing:
-                                lines.append(f"⏰ **Timing**  \n{timing}")
-                            if objective:
-                                lines.append(f"🎯 **Objective**  \n{objective}")
-                            st.markdown("  \n\n".join(lines))
+                        detail_html = [
+                            f"<div style='border-radius:12px; background:{meta['tint']}; "
+                            f"border:1.5px solid {meta['accent']}44; padding:14px; margin-top:6px;'>",
+                            f"<div style='font-size:10px; font-weight:800; letter-spacing:0.06em; "
+                            f"text-transform:uppercase; color:{meta['accent']}; margin-bottom:10px;'>"
+                            f"{meta['icon']} {meta['label']} — Details</div>",
+                        ]
+                        for icon, lbl, val, clr in detail_rows:
+                            detail_html.append(
+                                f"<div style='margin-bottom:8px;'>"
+                                f"<div style='font-size:9px; font-weight:800; letter-spacing:0.05em; "
+                                f"text-transform:uppercase; color:{clr}; opacity:0.75;'>{icon} {lbl}</div>"
+                                f"<div style='font-size:12px; font-weight:600; color:#221F18; "
+                                f"line-height:1.4; margin-top:1px;'>{val}</div>"
+                                f"</div>"
+                            )
+                        if why or precautions:
+                            detail_html.append(
+                                f"<div style='margin-top:4px; padding-top:10px; "
+                                f"border-top:1px solid {meta['accent']}33;'>"
+                            )
+                            if why:
+                                detail_html.append(
+                                    f"<div style='font-size:9px; font-weight:800; letter-spacing:0.05em; "
+                                    f"text-transform:uppercase; color:{meta['accent']}; opacity:0.75;'>💡 Why</div>"
+                                    f"<div style='font-size:11.5px; color:#5E594C; line-height:1.5; margin-top:2px;'>{why}</div>"
+                                )
+                            if precautions:
+                                detail_html.append(
+                                    f"<div style='margin-top:8px; font-size:9px; font-weight:800; "
+                                    f"letter-spacing:0.05em; text-transform:uppercase; color:#C13E2A; opacity:0.85;'>⚠️ Precautions</div>"
+                                    f"<div style='font-size:11.5px; color:#5E594C; line-height:1.5; margin-top:2px;'>{precautions}</div>"
+                                )
+                            detail_html.append("</div>")
+                        detail_html.append("</div>")
 
-                            if why or precautions:
-                                with st.expander("📖 View Why"):
-                                    if why:
-                                        st.markdown(f"**Why this matters:**  \n{why}")
-                                    if precautions:
-                                        st.markdown(f"**⚠️ Precautions:**  \n{precautions}")
+                        with col:
+                            st.markdown("".join(detail_html), unsafe_allow_html=True)
 
 # ── Add custom activity ────────────────────────────────────────────────────────
 st.divider()
