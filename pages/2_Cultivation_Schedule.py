@@ -182,38 +182,46 @@ html, body, [class*="css"] { font-family: 'Inter', -apple-system, sans-serif; }
 }
 .stage-line b { color: #2F5F45; font-weight: 700; }
 
-/* ── Equal-height cards across a row ──────────────────────────────────
-   Streamlit columns don't stretch by default, so a tall "spray" card
-   with a badge sits next to a short irrigation card and the action
-   buttons end up at different heights. Force every column in a row,
-   and every block inside it, to stretch to the row's tallest card. */
+/* ── Equal-height cards: cascade flex-stretch through ALL Streamlit wrappers ──
+   Streamlit nests content 4-5 divs deep. We must set display:flex + flex:1
+   on every wrapper in the chain or the stretch won't reach the card. */
 div[data-testid="stHorizontalBlock"] {
     align-items: stretch !important;
+    gap: 12px !important;
 }
 div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-    display: flex !important;
-    flex-direction: column !important;
+    display: flex !important; flex-direction: column !important;
+    min-height: 0;
 }
-div[data-testid="column"] > div[data-testid="stVerticalBlock"] {
-    flex: 1 1 auto;
-    display: flex; flex-direction: column;
-    height: 100%;
+div[data-testid="column"] > div[data-testid="stVerticalBlock"],
+div[data-testid="column"] > div[data-testid="stVerticalBlock"] > div,
+div[data-testid="column"] > div[data-testid="stVerticalBlock"] > div > div {
+    flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0;
 }
-div[data-testid="stVerticalBlockBorderWrapper"]:has(.act-card) {
-    flex: 1 1 auto; display: flex; flex-direction: column;
-    height: 100%; border-radius: 14px !important;
+/* The border wrapper IS the st.container(border=True) — must stretch too */
+div[data-testid="stVerticalBlockBorderWrapper"] {
+    flex: 1 1 auto !important; display: flex !important;
+    flex-direction: column !important; min-height: 0 !important;
+    border-radius: 14px !important;
 }
-div[data-testid="stVerticalBlockBorderWrapper"]:has(.act-card) > div {
-    flex: 1 1 auto; display: flex; flex-direction: column; height: 100%;
+div[data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"] {
+    flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0;
+}
+/* Hide Streamlit tooltip/info dot that leaks through on action badges */
+div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stTooltipIcon"],
+.act-action-badge ~ [data-testid="stTooltipIcon"] {
+    display: none !important;
 }
 
-/* ── Card shell — tinted by category, not just accented ──────────────── */
+/* ── Card shell ────────────────────────────────────────────────────────── */
 .act-card {
-    border-radius: 14px; padding: 0;
-    display: flex; flex-direction: column; flex: 1 1 auto;
+    border-radius: 12px; padding: 0;
+    display: flex; flex-direction: column;
+    flex: 1 1 auto;   /* fill the stretched wrapper */
+    min-height: 260px; /* floor so single-line cards still look substantial */
     border: 1.5px solid transparent;
-    min-height: 150px; position: relative; box-sizing: border-box;
-    box-shadow: 0 1px 2px rgba(30,25,15,0.04), 0 4px 14px rgba(30,25,15,0.05);
+    box-sizing: border-box;
+    box-shadow: 0 1px 3px rgba(30,25,15,0.05), 0 4px 16px rgba(30,25,15,0.06);
 }
 .act-card-top {
     display: flex; align-items: flex-start; gap: 10px;
@@ -279,6 +287,11 @@ div[data-testid="stVerticalBlockBorderWrapper"]:has(.act-card) > div {
 .card-wrapper {
     border-radius: 14px; overflow: hidden;
     display: flex; flex-direction: column;
+}
+/* Pin the action-button row (last stHorizontalBlock inside border wrapper)
+   to the bottom by giving all earlier content flex:1 */
+div[data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"] > div:last-child {
+    margin-top: auto;
 }
 .card-wrapper [data-testid="stHorizontalBlock"] {
     padding: 0 !important; gap: 0 !important;
