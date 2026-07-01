@@ -183,22 +183,23 @@ html, body, [class*="css"] { font-family: 'Inter', -apple-system, sans-serif; }
 .stage-line b { color: #2F5F45; font-weight: 700; }
 
 /* ── Equal-height cards: cascade flex-stretch through ALL Streamlit wrappers ──
-   Streamlit nests content 4-5 divs deep. We must set display:flex + flex:1
-   on every wrapper in the chain or the stretch won't reach the card. */
+   Chain: stHorizontalBlock → column → stVerticalBlock → stVerticalBlock>div
+          → stVerticalBlockBorderWrapper → its stVerticalBlock
+          → stMarkdownContainer (wraps st.markdown(card_html)) → .act-card
+   Every level must be display:flex + flex-direction:column + flex:1 or the
+   stretch breaks at that level. stMarkdownContainer was the missing link. */
 div[data-testid="stHorizontalBlock"] {
     align-items: stretch !important;
     gap: 12px !important;
 }
 div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-    display: flex !important; flex-direction: column !important;
-    min-height: 0;
+    display: flex !important; flex-direction: column !important; min-height: 0;
 }
 div[data-testid="column"] > div[data-testid="stVerticalBlock"],
 div[data-testid="column"] > div[data-testid="stVerticalBlock"] > div,
 div[data-testid="column"] > div[data-testid="stVerticalBlock"] > div > div {
     flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0;
 }
-/* The border wrapper IS the st.container(border=True) — must stretch too */
 div[data-testid="stVerticalBlockBorderWrapper"] {
     flex: 1 1 auto !important; display: flex !important;
     flex-direction: column !important; min-height: 0 !important;
@@ -207,9 +208,15 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
 div[data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"] {
     flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0;
 }
-/* Hide Streamlit tooltip/info dot that leaks through on action badges */
-div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stTooltipIcon"],
-.act-action-badge ~ [data-testid="stTooltipIcon"] {
+/* stMarkdownContainer is the direct parent of .act-card — was missing before */
+div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stMarkdownContainer"]:first-child {
+    flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0;
+}
+div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stMarkdownContainer"]:first-child > div {
+    flex: 1 1 auto; display: flex; flex-direction: column;
+}
+/* Hide Streamlit tooltip dot leaking through action badges */
+div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stTooltipIcon"] {
     display: none !important;
 }
 
@@ -217,8 +224,8 @@ div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stTooltipIcon"],
 .act-card {
     border-radius: 12px; padding: 0;
     display: flex; flex-direction: column;
-    flex: 1 1 auto;   /* fill the stretched wrapper */
-    min-height: 260px; /* floor so single-line cards still look substantial */
+    flex: 1 1 auto;
+    min-height: 300px; /* solid floor — cards with no badge still look full */
     border: 1.5px solid transparent;
     box-sizing: border-box;
     box-shadow: 0 1px 3px rgba(30,25,15,0.05), 0 4px 16px rgba(30,25,15,0.06);
@@ -464,11 +471,14 @@ for tab_idx, tab in enumerate(tabs):
             wb.append("</div></div>")
             st.markdown("".join(wb), unsafe_allow_html=True)
 
-            # ── Cards: rows of 4 so each card gets ~280px on desktop ──────
+            # ── Cards: always 4 columns — consistent ~280px width on any crop ──
+            # Using len(row_items) columns would give 600px-wide cards when a
+            # week has only 2 activities (e.g. Toor Dal). Fixed 4-col grid keeps
+            # card width uniform; unused columns are naturally left empty.
             ROW_SIZE = 4
             for row_start in range(0, len(items), ROW_SIZE):
                 row_items = items[row_start : row_start + ROW_SIZE]
-                cols = st.columns(len(row_items))
+                cols = st.columns(4)  # always 4 — spare cols stay empty
 
                 for col, row in zip(cols, row_items):
                     eff_status   = _effective_status(row, today)
