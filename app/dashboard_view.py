@@ -1,11 +1,13 @@
 """
-Dashboard: the single screen that answers all four core questions.
-  - What should I do today?      -> Today's Tasks KPI + list
-  - What is due this week?       -> Upcoming Tasks KPI + Weekly Alerts panel
-  - How much have I spent?       -> Total Expenses KPI + breakdown chart
-  - Am I making a profit?        -> Profit/Loss KPI + P&L summary chart
+Dashboard: the single screen that answers the core questions -- led by
+"what's the single best thing to do today" (services.decisions.
+recommendation_engine.build_schedule_snapshot), not a raw list of whatever
+happens to be scheduled or overdue. Below that: completed-recently,
+other actionable items, money.
 """
 from __future__ import annotations
+
+from datetime import date
 
 import pandas as pd
 import plotly.express as px
@@ -22,24 +24,87 @@ from db.base import session_scope
 from db.models import ActivityStatus, ScheduleActivity, Season
 from repositories import expense_repo, observation_repo, revenue_repo, schedule_repo
 from services.alert_engine import refresh_alerts_for_season
+from services.decisions.recommendation_engine import RecommendedOperation, build_schedule_snapshot
 from services.pnl_engine import calculate_pnl
+
+CATEGORY_ICON = {
+    "FERTILIZER": "🌱", "SPRAY": "🧴", "IRRIGATION": "💧", "WEEDING": "🌾",
+    "SOWING": "🌰", "LAND_PREPARATION": "🚜", "HARVEST": "🧺", "OTHER": "📌",
+}
+
+
+def _render_operation_card(op: RecommendedOperation, today: date, key_prefix: str) -> None:
+    icon = CATEGORY_ICON.get(op.category, "📌")
+    when = "Today" if op.recommended_date == today else (
+        "Overdue" if op.recommended_date < today else op.recommended_date.strftime("%d %b")
+    )
+
+    lines = [f"**{icon} {op.name}**", f"`{op.priority}` · {when}"]
+    if op.products:
+        for i, prod in enumerate(op.products):
+            dose = op.dosage[i] if i < len(op.dosage) else ""
+            lines.append(f"- {prod}" + (f" — {dose}" if dose else ""))
+    if op.water_volume:
+        lines.append(f"💧 Water: {op.water_volume}")
+    lines.append(f"**Why:** {op.why}")
+    if op.expected_benefit:
+        lines.append(f"**Expected benefit:** {op.expected_benefit}")
+    if op.recovery_reason:
+        tag = "🔁 Replaced" if op.is_replacement else "⏰ Recovery"
+        lines.append(f"**{tag}:** {op.recovery_reason}")
+
+    st.markdown("\n\n".join(lines))
+
+    ask_key = f"{key_prefix}_ask_date_{op.activity_ids[0]}"
+    b1, b2 = st.columns(2)
+    if b1.button("✓ Mark Complete", key=f"{key_prefix}_done_{op.activity_ids[0]}", use_container_width=True, type="primary"):
+        st.session_state[ask_key] = True
+        st.rerun()
+    if b2.button("⏭ Skip", key=f"{key_prefix}_skip_{op.activity_ids[0]}", use_container_width=True):
+        with session_scope() as s:
+            for aid in op.activity_ids:
+                act = schedule_repo.get_activity(s, aid)
+                if act:
+                    schedule_repo.mark_skipped(s, act)
+        st.rerun()
+
+    if st.session_state.get(ask_key):
+        with st.form(key=f"{key_prefix}_form_{op.activity_ids[0]}"):
+            chosen_date = st.date_input("Completion date", value=today, max_value=today,
+                                         key=f"{key_prefix}_date_{op.activity_ids[0]}")
+            fc1, fc2 = st.columns(2)
+            confirm = fc1.form_submit_button("✓ Confirm", type="primary", use_container_width=True)
+            cancel = fc2.form_submit_button("Cancel", use_container_width=True)
+        if confirm:
+            with session_scope() as s:
+                for aid in op.activity_ids:
+                    act = schedule_repo.get_activity(s, aid)
+                    if act:
+                        schedule_repo.mark_complete(s, act, completed_date=chosen_date)
+            st.session_state[ask_key] = False
+            st.rerun()
+        if cancel:
+            st.session_state[ask_key] = False
+            st.rerun()
 
 
 def render(ctx: dict) -> None:
     season_id = ctx["season_id"]
+    today = date.today()
 
     st.title("🌱 Cultivation Dashboard")
     st.caption(f"{ctx['farm_name']} • {ctx['crop_name']}" + (f" ({ctx['variety']})" if ctx["variety"] else ""))
 
     with session_scope() as session:
-        today_tasks = schedule_repo.get_todays_tasks(session, season_id)
+        season_obj = session.get(Season, season_id)
+
+        snapshot = build_schedule_snapshot(session, season_obj, today=today)
+
         upcoming_tasks = schedule_repo.get_upcoming_tasks(session, season_id, days=7)
         expenses = expense_repo.list_expenses(session, season_id)
         revenues = revenue_repo.list_revenues(session, season_id)
         pnl = calculate_pnl(expenses, revenues, area=ctx["area"])
 
-        # Refresh + fetch alerts (needs the actual Season ORM object).
-        season_obj = session.get(Season, season_id)
         alerts = refresh_alerts_for_season(session, season_obj)
 
         recent_completed = (
@@ -53,7 +118,6 @@ def render(ctx: dict) -> None:
         recent_observations = observation_repo.list_observations(session, season_id, limit=3)
 
         # Snapshot plain data before the session closes.
-        today_tasks_data = [(t.name, t.category.value, t.remarks) for t in today_tasks]
         upcoming_tasks_data = [(t.activity_date, t.name, t.category.value) for t in upcoming_tasks]
         alerts_data = [(a.priority.value, a.message) for a in alerts]
         recent_data = [(a.completed_at, a.name, a.category.value) for a in recent_completed]
@@ -62,6 +126,10 @@ def render(ctx: dict) -> None:
         observation_data = [
             (o.observed_at, o.note, o.ai_category) for o in recent_observations
         ]
+        recommended = snapshot.recommended
+        also_actionable = snapshot.also_actionable
+        escalated = snapshot.escalated
+        replaced_names = snapshot.replaced_names
 
     # ---------------- KPI Row 1: Crop status ----------------
     k1, k2, k3, k4 = st.columns(4)
@@ -70,33 +138,43 @@ def render(ctx: dict) -> None:
     k3.metric("Days After Sowing", f"{ctx['das']} days")
     k4.metric("Area", f"{ctx['area']:.1f} {ctx['area_unit']}")
 
-    # ---------------- KPI Row 2: Tasks ----------------
-    k5, k6, k7 = st.columns(3)
-    k5.metric("Today's Tasks", len(today_tasks_data))
-    k6.metric("Upcoming (7 days)", len(upcoming_tasks_data))
-    overdue_count = sum(1 for p, _ in alerts_data if p == "RED")
-    k7.metric("Overdue", overdue_count, delta=None, delta_color="inverse")
+    st.divider()
 
-    # ---------------- KPI Row 3: Money ----------------
-    k8, k9, k10 = st.columns(3)
-    k8.metric("Total Expenses", format_currency(pnl.total_expenses))
-    k9.metric("Total Revenue", format_currency(pnl.total_revenue))
-    profit_label = "Profit" if pnl.net_profit >= 0 else "Loss"
-    k10.metric(f"Net {profit_label}", format_currency(abs(pnl.net_profit)))
+    # ---------------- PRIMARY: Recommended Next Operation ----------------
+    st.subheader("🎯 Recommended Next Operation")
+    if replaced_names:
+        for original, replacement in replaced_names:
+            st.caption(f"🔁 {original} missed its window — replaced with **{replacement}**.")
+
+    if recommended:
+        _render_operation_card(recommended, today, key_prefix="primary")
+    else:
+        st.success("Nothing actionable right now — the crop is fully on track. ✅")
+
+    if escalated:
+        with st.expander(f"⚠️ {len(escalated)} item(s) need a manual decision", expanded=False):
+            for decision in escalated:
+                st.markdown(f"- **{decision.activity.name}** — {decision.reason}")
+
+    if also_actionable:
+        with st.expander(f"📋 Also pending ({len(also_actionable)})", expanded=False):
+            for i, op in enumerate(also_actionable):
+                st.markdown(f"**{i + 1}. {op.name}** · `{op.priority}` · due {op.recommended_date.strftime('%d %b')}")
 
     st.divider()
 
     left, right = st.columns([1.1, 1])
 
     with left:
-        st.subheader("📋 Today's Tasks")
-        if today_tasks_data:
-            for name, category, remarks in today_tasks_data:
-                st.markdown(f"- **{name}** _( {category} )_" + (f" — {remarks}" if remarks else ""))
+        st.subheader("🕘 Completed Recently")
+        if recent_data:
+            for completed_at, name, category in recent_data:
+                ts = completed_at.strftime("%d %b") if completed_at else ""
+                st.markdown(f"- ✅ **{name}** _( {category} )_ — {ts}")
         else:
-            st.success("Nothing scheduled for today. ✅")
+            st.caption("No completed activities yet.")
 
-        st.subheader("🔔 Upcoming Alerts")
+        st.subheader("🔔 Alerts")
         if alerts_data:
             for priority, message in alerts_data[:8]:
                 color = {"RED": ALERT_RED, "YELLOW": ALERT_YELLOW, "GREEN": ALERT_GREEN}[priority]
@@ -109,20 +187,12 @@ def render(ctx: dict) -> None:
             st.info("No alerts right now.")
 
     with right:
-        st.subheader("📅 This Week")
+        st.subheader("📅 Upcoming (7 days)")
         if upcoming_tasks_data:
             df_upcoming = pd.DataFrame(upcoming_tasks_data, columns=["Date", "Activity", "Category"])
             st.dataframe(df_upcoming, hide_index=True, use_container_width=True)
         else:
             st.info("No tasks in the next 7 days.")
-
-        st.subheader("🕘 Recent Activity")
-        if recent_data:
-            for completed_at, name, category in recent_data:
-                ts = completed_at.strftime("%d %b") if completed_at else ""
-                st.markdown(f"- ✅ **{name}** _( {category} )_ — {ts}")
-        else:
-            st.caption("No completed activities yet.")
 
         st.subheader("📸 Recent Observations")
         if observation_data:
@@ -162,6 +232,7 @@ def render(ctx: dict) -> None:
             st.caption("No revenue recorded yet.")
 
     st.subheader("🧮 P&L Summary")
+    profit_label = "Profit" if pnl.net_profit >= 0 else "Loss"
     p1, p2, p3, p4 = st.columns(4)
     p1.metric("Total Expenses", format_currency(pnl.total_expenses))
     p2.metric("Total Revenue", format_currency(pnl.total_revenue))
@@ -170,3 +241,4 @@ def render(ctx: dict) -> None:
         f"Net {profit_label} / Acre",
         format_currency(abs(pnl.profit_per_acre)),
     )
+
