@@ -83,7 +83,42 @@ def build_alert_views(activities: list[ScheduleActivity], today: date | None = N
     return views
 
 
-def refresh_alerts_for_season(session: Session, season: Season, today: date | None = None) -> list[Alert]:
+def raise_recovery_alerts(session: Session, season: Season, escalations: list) -> list[Alert]:
+    """
+    Upsert a RED alert (keyed by schedule_activity_id, same convention as
+    refresh_alerts_for_season) for every RecoveryOutcome.ESCALATE decision
+    from the Recovery Engine -- an activity whose window has closed with no
+    authored REPLACE/SKIP strategy, needing a human decision rather than
+    either "just do it late" or a silent auto-skip.
+
+    Additive and separate from refresh_alerts_for_season's due-date-window
+    alerts: this never removes or overwrites a due-date alert for an
+    activity that isn't also escalated, and vice versa.
+    """
+    result: list[Alert] = []
+    for decision in escalations:
+        activity = decision.activity
+        existing = (
+            session.query(Alert)
+            .filter(Alert.season_id == season.id, Alert.schedule_activity_id == activity.id)
+            .first()
+        )
+        message = f"{activity.name}: {decision.reason}"
+        if existing:
+            existing.message = message
+            existing.priority = AlertPriority.RED
+            result.append(existing)
+        else:
+            new_alert = Alert(
+                season_id=season.id,
+                schedule_activity_id=activity.id,
+                message=message,
+                priority=AlertPriority.RED,
+            )
+            session.add(new_alert)
+            result.append(new_alert)
+    session.flush()
+    return result
     """
     Recompute and upsert Alert rows for a season's pending activities.
     Existing dismissed-state is preserved for activities still pending;

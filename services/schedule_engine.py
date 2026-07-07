@@ -113,6 +113,35 @@ def calculate_das(sowing_date: date, as_of: date | None = None) -> int:
     return (as_of - sowing_date).days
 
 
+def stage_sequence_for_das(session: Session, version_id, das: int) -> int | None:
+    """
+    Same lookup as current_stage_name, but returns the CropStage.sequence
+    number instead of the name. Lets a caller compare "which stage does
+    DAS X fall in" numerically -- e.g. to tell whether a still-PENDING
+    activity's own stage is earlier than the plant's current stage (its
+    physiological window has already closed), without string-comparing
+    stage names.
+    """
+    from db.models import CropStage  # local import to avoid circulars at module load
+
+    stages = (
+        session.query(CropStage)
+        .filter(CropStage.version_id == version_id)
+        .order_by(CropStage.sequence)
+        .all()
+    )
+    if not stages:
+        return None
+
+    for stage in stages:
+        if stage.start_day <= das <= stage.end_day:
+            return stage.sequence
+
+    if das < stages[0].start_day:
+        return stages[0].sequence
+    return stages[-1].sequence
+
+
 def current_stage_name(session: Session, version_id, das: int) -> str | None:
     """
     Look up which CropStage's [start_day, end_day] range contains `das`,
