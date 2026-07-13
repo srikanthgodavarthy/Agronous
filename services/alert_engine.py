@@ -119,6 +119,9 @@ def raise_recovery_alerts(session: Session, season: Season, escalations: list) -
             result.append(new_alert)
     session.flush()
     return result
+
+
+def refresh_alerts_for_season(session: Session, season: Season, today: date | None = None) -> list[Alert]:
     """
     Recompute and upsert Alert rows for a season's pending activities.
     Existing dismissed-state is preserved for activities still pending;
