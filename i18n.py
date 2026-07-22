@@ -254,6 +254,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "_No description_": "_వివరణ లేదు_",
         "No expenses logged yet. Add your first one on the right.": "ఇంకా ఖర్చులు నమోదు కాలేదు. కుడివైపు మీ మొదటి దాన్ని జోడించండి.",
         "➕ Add Expense": "➕ ఖర్చును జోడించండి",
+        "Add Expense": "ఖర్చును జోడించండి",
         "e.g. Urea 2 bags": "ఉదా. యూరియా 2 బస్తాలు",
         "Amount must be greater than zero.": "మొత్తం సున్నా కంటే ఎక్కువగా ఉండాలి.",
         "Logged {amount} under {category}.": "{category} కింద {amount} నమోదు చేయబడింది.",
