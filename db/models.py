@@ -186,19 +186,6 @@ class TriggerLogic(str, enum.Enum):
     ANY = "ANY"  # at least one condition must hold (OR)
 
 
-class RecoveryStrategy(str, enum.Enum):
-    """
-    What to do with a PENDING activity once it's overdue AND has passed its
-    own valid_until_stage/max_delay_days window (evaluated by
-    services.decisions.recovery_engine). Never set for an activity that's
-    simply late-but-still-valid -- that case is always "do it now, just
-    late" and needs no authored strategy at all.
-    """
-    REPLACE  = "REPLACE"   # swap in replacement_template instead
-    SKIP     = "SKIP"      # auto-skip; nothing left to recommend
-    ESCALATE = "ESCALATE"  # needs a human/agronomist decision; raise an alert
-
-
 # ---------------------------------------------------------------------------
 # MASTER DATA -- the "Crop Master Template" engine (versioned)
 # ---------------------------------------------------------------------------
@@ -373,43 +360,6 @@ class ActivityTemplate(Base):
     # trigger_logic/trigger_conditions pair is intentionally the simplest
     # thing that works for closed-vocabulary AND/OR matching; it is not
     # meant to grow into a general rule engine in place.
-
-    # --- Recovery metadata (services/decisions/recovery_engine.py) ---
-    # Together these answer "what should happen if this activity is still
-    # PENDING once it's overdue" -- read by the Recovery Engine, never by
-    # the schedule/decision engines directly. All nullable: a template with
-    # none of these set behaves exactly as before (recovery_engine falls
-    # back to a generic category-based heuristic) -- zero behavior change
-    # for existing/legacy rows.
-    valid_until_stage: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    # Name of the last CropStage (within the same version) this activity is
-    # still agronomically valid to perform in. Once the plant's current
-    # stage is later than this one, the activity's window has closed. NULL
-    # means "no stage-based expiry" (e.g. harvest/record-keeping rows).
-    max_delay_days: Mapped[int | None] = mapped_column(nullable=True)
-    # Alternative/complementary grace period, in days past this activity's
-    # own planned date, after which it's considered expired even if the
-    # stage check alone wouldn't yet say so. NULL = no day-based cap.
-    recovery_type: Mapped["RecoveryStrategy | None"] = mapped_column(
-        Enum(RecoveryStrategy, name="recovery_strategy", native_enum=False, length=20), nullable=True
-    )
-    # What to do once the window above has closed. NULL = no recovery
-    # strategy authored yet (legacy fallback heuristic applies).
-    replacement_template_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("activity_template.id", ondelete="SET NULL"), nullable=True
-    )
-    # Only meaningful when recovery_type == REPLACE: the ActivityTemplate
-    # (within the same version) to recommend instead, e.g. a vegetative
-    # Nitrogen top-dressing whose window closed points here at a Flowering
-    # Nutrition Program template.
-    expected_impact: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    # Short human-readable note surfaced on the recommendation card
-    # explaining the consequence of the recovery/replacement decision, e.g.
-    # "Vegetative N window closed; flowering nutrition partially compensates."
-
-    replacement_template: Mapped["ActivityTemplate | None"] = relationship(
-        remote_side=[id], foreign_keys=[replacement_template_id]
-    )
 
     version: Mapped["CropTemplateVersion"] = relationship(back_populates="activity_templates")
 
