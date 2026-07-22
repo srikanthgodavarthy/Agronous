@@ -11,6 +11,7 @@ import streamlit as st
 from app.ui_helpers import require_active_season
 from db.base import session_scope
 from db.models import ActivityCategory, ActivityStatus
+from i18n import t
 from repositories import schedule_repo
 from services.schedule_engine import calculate_das, current_stage_name
 
@@ -483,7 +484,7 @@ season_id   = ctx["season_id"]
 sowing_date = ctx["sowing_date"]
 today       = date.today()
 
-st.title("🌿 Cultivation Schedule")
+st.title(t("🌿 Cultivation Schedule"))
 st.caption(
     f"{ctx['farm_name']} · {ctx['crop_name']}"
     + (f" ({ctx['variety']})" if ctx["variety"] else "")
@@ -506,15 +507,18 @@ with session_scope() as session:
     ]
 
 ALL_CATS   = [c.value for c in ActivityCategory]
-TAB_LABELS = ["🗓 All"] + [f"{CATEGORY_META[c]['icon']} {CATEGORY_META[c]['label']}" for c in ALL_CATS]
+TAB_LABELS = [f"🗓 {t('All')}"] + [f"{CATEGORY_META[c]['icon']} {t(CATEGORY_META[c]['label'])}" for c in ALL_CATS]
 
 tabs = st.tabs(TAB_LABELS)
+
+_SHOW_OPTIONS = ["All", "Pending", "Completed", "Skipped"]
 
 for tab_idx, tab in enumerate(tabs):
     with tab:
         sf = st.radio(
             "Show",
-            ["All", "Pending", "Completed", "Skipped"],
+            _SHOW_OPTIONS,
+            format_func=t,
             horizontal=True,
             key=f"sf_{tab_idx}",
             label_visibility="collapsed",
@@ -525,7 +529,7 @@ for tab_idx, tab in enumerate(tabs):
         filtered = pool if sv == "All" else [a for a in pool if a["status"] == sv]
 
         if not filtered:
-            st.info("No activities match this filter.")
+            st.info(t("No activities match this filter."))
             continue
 
         sorted_acts = sorted(filtered, key=lambda a: a["activity_date"])
@@ -562,7 +566,7 @@ for tab_idx, tab in enumerate(tabs):
                     "border-radius:8px;padding:5px 10px;margin:0 4px 4px 0;'>"
                     "<span style='font-size:14px'>" + m["icon"] + "</span>"
                     "<span style='font-size:11px;font-weight:700;color:" + m["accent"] + "'>"
-                    + str(cnt) + " " + m["label"] + "</span></div>"
+                    + str(cnt) + " " + t(m["label"]) + "</span></div>"
                 )
 
             overdue_html = ""
@@ -573,7 +577,7 @@ for tab_idx, tab in enumerate(tabs):
                     "border-radius:8px;padding:5px 12px;margin-left:6px;'>"
                     "<span style='font-size:13px'>⚠️</span>"
                     "<span style='font-size:11px;font-weight:800;color:#C13E2A'>"
-                    + str(overdue_count) + " OVERDUE</span></div>"
+                    + str(overdue_count) + " " + t("OVERDUE") + "</span></div>"
                 )
 
             total_done  = sum(1 for it in items if it["status"] == "COMPLETED")
@@ -585,7 +589,7 @@ for tab_idx, tab in enumerate(tabs):
             if week_stage:
                 stage_html = (
                     "<div style='font-size:13px;color:#6B6456;font-weight:500;"
-                    "margin-top:4px;'>Stage: <b style='color:#2F5F45'>"
+                    "margin-top:4px;'>" + t("Stage:") + " <b style='color:#2F5F45'>"
                     + week_stage + "</b></div>"
                 )
 
@@ -593,7 +597,7 @@ for tab_idx, tab in enumerate(tabs):
             if not chips_parts:
                 no_action_html = (
                     "<span style='font-size:11px;color:#9A9485;font-style:italic;'>"
-                    "All activities completed this week ✓</span>"
+                    + t("All activities completed this week ✓") + "</span>"
                 )
 
             # Build as flat list — no indented multiline to avoid Markdown
@@ -610,7 +614,7 @@ for tab_idx, tab in enumerate(tabs):
             wb.append("</div>")
             wb.append("<div style='text-align:right;min-width:80px;'>")
             wb.append("<div style='font-size:24px;font-weight:800;color:" + bar_color + ";line-height:1;'>" + str(pct) + "%</div>")
-            wb.append("<div style='font-size:10px;color:#9A9485;font-weight:600;margin-top:2px;'>" + str(total_done) + "/" + str(total_items) + " done</div>")
+            wb.append("<div style='font-size:10px;color:#9A9485;font-weight:600;margin-top:2px;'>" + t("{done}/{total} done", done=total_done, total=total_items) + "</div>")
             wb.append("</div></div>")
             wb.append("<div style='background:#EDE6D6;border-radius:4px;height:4px;margin:10px 0 12px 0;overflow:hidden;'>")
             wb.append("<div style='width:" + str(pct) + "%;background:" + bar_color + ";height:4px;border-radius:4px;'></div>")
@@ -636,7 +640,7 @@ for tab_idx, tab in enumerate(tabs):
                     date_str     = row["activity_date"].strftime("%d %b")
                     hint         = _get_hint(row["name"], row["remarks"], row["category"])
                     parsed       = _parse_remarks(row["remarks"])
-                    status_label = {"OVERDUE": "Overdue"}.get(eff_status, eff_status.title())
+                    status_label = t({"OVERDUE": "Overdue"}.get(eff_status, eff_status.title()))
                     acc          = meta["accent"]
                     soft         = meta["soft"]
                     tint         = meta["tint"]
@@ -644,7 +648,7 @@ for tab_idx, tab in enumerate(tabs):
                     product = _clean_value(parsed.get("Product") or (hint["combo"] if hint else ""))
                     dose    = _clean_value(parsed.get("Dose") or (hint["dose"] if hint else ""))
                     if row["category"] in ACTIONABLE_CATS and product and dose:
-                        badge_tag = "🧴 SPRAY · APPLY NOW" if row["category"] == "SPRAY" else "🌱 FERTILIZER · APPLY"
+                        badge_tag = t("🧴 SPRAY · APPLY NOW") if row["category"] == "SPRAY" else t("🌱 FERTILIZER · APPLY")
                         badge_block = "".join([
                             "<div class='act-action-badge' style='background:{a}; box-shadow:0 2px 8px {a}55;'>".format(a=acc),
                             "<span class='tag'>{}</span>".format(badge_tag),
@@ -700,7 +704,7 @@ for tab_idx, tab in enumerate(tabs):
                         "</div></div>",
                         "<div class='act-meta-row'>",
                         "<div class='act-meta'>{} &nbsp;·&nbsp; DAS {}</div>".format(date_str, row["das"]),
-                        "<div class='act-meta'><span class='act-cat-tag' style='color:{}'>{}</span></div>".format(acc, meta["label"]),
+                        "<div class='act-meta'><span class='act-cat-tag' style='color:{}'>{}</span></div>".format(acc, t(meta["label"])),
                         "</div>",
                         badge_block,
                         "<div class='act-spacer'></div>",
@@ -751,20 +755,20 @@ for tab_idx, tab in enumerate(tabs):
                                 unsafe_allow_html=True,
                             )
                             b1, b2, b3 = st.columns(3)
-                            if b1.button("✓", key=done_key, help="Mark complete", use_container_width=True):
+                            if b1.button("✓", key=done_key, help=t("Mark complete"), use_container_width=True):
                                 with session_scope() as session:
                                     act = schedule_repo.get_activity(session, row["id"])
                                     if act:
                                         schedule_repo.mark_complete(session, act)
                                 st.rerun()
-                            if b2.button("⏭", key=skip_key, help="Skip", use_container_width=True):
+                            if b2.button("⏭", key=skip_key, help=t("Skip"), use_container_width=True):
                                 with session_scope() as session:
                                     act = schedule_repo.get_activity(session, row["id"])
                                     if act:
                                         schedule_repo.mark_skipped(session, act)
                                 st.rerun()
                             detail_key = "detail_{}".format(row["id"])
-                            if b3.button("ⓘ", key="info_{}_{}".format(tab_idx, row["id"]), help="Details", use_container_width=True):
+                            if b3.button("ⓘ", key="info_{}_{}".format(tab_idx, row["id"]), help=t("Details"), use_container_width=True):
                                 st.session_state[detail_key] = not st.session_state.get(detail_key, False)
                                 st.rerun()
 
@@ -783,18 +787,18 @@ for tab_idx, tab in enumerate(tabs):
 
                             detail_rows = []
                             if product2:
-                                detail_rows.append(("🧪", "Product", product2 + (" ({})".format(composition) if composition else ""), acc))
+                                detail_rows.append(("🧪", t("Product"), product2 + (" ({})".format(composition) if composition else ""), acc))
                             if dose2:
-                                detail_rows.append(("📦", "Dose", dose2, acc))
+                                detail_rows.append(("📦", t("Dose"), dose2, acc))
                             if water:
-                                detail_rows.append(("💧", "Water", water, "#2E78B7"))
+                                detail_rows.append(("💧", t("Water"), water, "#2E78B7"))
                             if timing:
-                                detail_rows.append(("⏰", "Timing", timing, "#8A5A2B"))
+                                detail_rows.append(("⏰", t("Timing"), timing, "#8A5A2B"))
                             if objective2:
-                                detail_rows.append(("🎯", "Objective", objective2, acc))
+                                detail_rows.append(("🎯", t("Objective"), objective2, acc))
 
                             d = ["<div style='border-radius:12px;background:{bg};border:1.5px solid {a}44;padding:14px;margin-top:6px;'>".format(bg=STATUS_DRAWER_FILL.get(eff_status, STATUS_DRAWER_FILL["PENDING"]), a=acc)]
-                            d.append("<div style='font-size:10px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:{};margin-bottom:10px;'>{} {} — Details</div>".format(acc, meta["icon"], meta["label"]))
+                            d.append("<div style='font-size:10px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:{};margin-bottom:10px;'>{} {} — {}</div>".format(acc, meta["icon"], t(meta["label"]), t("Details")))
                             for icon, lbl, val, clr in detail_rows:
                                 d.append(
                                     "<div style='margin-bottom:8px;'>"
@@ -805,30 +809,30 @@ for tab_idx, tab in enumerate(tabs):
                             if why or precautions:
                                 d.append("<div style='margin-top:4px;padding-top:10px;border-top:1px solid {}33;'>".format(acc))
                                 if why:
-                                    d.append("<div style='font-size:9px;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;color:{};opacity:0.75;'>💡 Why</div><div style='font-size:11.5px;color:#5E594C;line-height:1.5;margin-top:2px;'>{}</div>".format(acc, why))
+                                    d.append("<div style='font-size:9px;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;color:{};opacity:0.75;'>💡 {}</div><div style='font-size:11.5px;color:#5E594C;line-height:1.5;margin-top:2px;'>{}</div>".format(acc, t("Why"), why))
                                 if precautions:
-                                    d.append("<div style='margin-top:8px;font-size:9px;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;color:#C13E2A;opacity:0.85;'>⚠️ Precautions</div><div style='font-size:11.5px;color:#5E594C;line-height:1.5;margin-top:2px;'>{}</div>".format(precautions))
+                                    d.append("<div style='margin-top:8px;font-size:9px;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;color:#C13E2A;opacity:0.85;'>⚠️ {}</div><div style='font-size:11.5px;color:#5E594C;line-height:1.5;margin-top:2px;'>{}</div>".format(t("Precautions"), precautions))
                                 d.append("</div>")
                             d.append("</div>")
                             st.markdown("".join(d), unsafe_allow_html=True)
 
 # ── Add custom activity ────────────────────────────────────────────────────────
 st.divider()
-with st.expander("➕ Add Custom Activity"):
+with st.expander(t("➕ Add Custom Activity")):
     with st.form("add_custom", clear_on_submit=True):
         c1, c2, c3 = st.columns(3)
-        act_name    = c1.text_input("Name *", placeholder="e.g. Soil Testing")
+        act_name    = c1.text_input(t("Name *"), placeholder=t("e.g. Soil Testing"))
         cat_val     = c2.selectbox(
-            "Category *", ALL_CATS,
-            format_func=lambda v: f"{CATEGORY_META[v]['icon']} {CATEGORY_META[v]['label']}",
+            t("Category *"), ALL_CATS,
+            format_func=lambda v: f"{CATEGORY_META[v]['icon']} {t(CATEGORY_META[v]['label'])}",
         )
-        act_date    = c3.date_input("Date *", value=date.today())
-        act_remarks = st.text_input("Remarks / dosage (optional)")
-        sub         = st.form_submit_button("Add Activity", type="primary")
+        act_date    = c3.date_input(t("Date *"), value=date.today())
+        act_remarks = st.text_input(t("Remarks / dosage (optional)"))
+        sub         = st.form_submit_button(t("Add Activity"), type="primary")
 
     if sub:
         if not act_name.strip():
-            st.error("Activity name is required.")
+            st.error(t("Activity name is required."))
         else:
             das = calculate_das(ctx["sowing_date"], as_of=act_date)
             with session_scope() as session:
