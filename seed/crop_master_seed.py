@@ -23,7 +23,7 @@ Run with:  python -m seed.crop_master_seed
 from __future__ import annotations
 
 from db.base import session_scope
-from db.models import ActivityCategory, ActivityTemplate, CropMaster, CropStage, CropTemplateVersion, RecoveryStrategy, TriggerLogic
+from db.models import ActivityCategory, ActivityTemplate, CropMaster, CropStage, CropTemplateVersion, TriggerLogic
 
 # ---------------------------------------------------------------------------
 # Each crop is defined as: stages (DAS ranges) + activity templates
@@ -1142,8 +1142,7 @@ def _activity(day_offset, category, name, repeat_interval, repeat_count, remarks
     know about the shape change.
     """
     return (day_offset, category, name, repeat_interval, repeat_count, remarks,
-            False, False, None, None,
-            None, None, None, None, None)
+            False, False, None, None)
 
 
 def create_new_version(
@@ -1151,7 +1150,10 @@ def create_new_version(
     label: str,
     change_notes: str,
     stages: list[tuple[str, int, int, int, str]],
-    activities: list[tuple],
+    activities: list[tuple[
+        int, ActivityCategory, str, int | None, int, str,
+        bool, bool, "TriggerLogic | None", list[str] | None,
+    ]],
 ) -> None:
     """
     Add a new CropTemplateVersion for an existing crop and mark it current,
@@ -1163,24 +1165,12 @@ def create_new_version(
     already created keeps pointing at whatever version it was generated
     against, untouched.
 
-    activities tuple shape -- 10 fields (legacy) or 15 fields (adds
-    recovery metadata, services/decisions/recovery_engine.py):
+    activities tuple shape (9 fields, 4 trailing beyond the original 6):
         (day_offset, category, name, repeat_interval, repeat_count, remarks,
-         is_conditional, feeds_context, trigger_logic, trigger_conditions,
-         [valid_until_stage, max_delay_days, recovery_type,
-          replacement_operation_name, expected_impact])
-    Crops that haven't adopted Layer 1.5/2 can build the 10-field shape from
-    their existing 6-tuple seed data via the _activity() wrapper above, with
-    zero edits to their own seed data; it now emits 15 fields with the
-    trailing 5 defaulted to None, so nothing behaves differently.
-
-    replacement_operation_name is resolved to an actual
-    ActivityTemplate.id by *name*, against the other activities in this
-    same call/version, in a second pass after every row has been inserted
-    (so forward references -- a DAS 26 row pointing at a DAS 46 row -- work
-    without needing the target's id up front). A name that doesn't match
-    any activity in this version raises ValueError rather than silently
-    leaving the replacement unset.
+         is_conditional, feeds_context, trigger_logic, trigger_conditions)
+    Crops that haven't adopted Layer 1.5/2 can build this shape from their
+    existing 6-tuple seed data via the _activity() wrapper above, with zero
+    edits to their own seed data.
 
     Example:
         create_new_version(
@@ -1233,57 +1223,23 @@ def create_new_version(
                 )
             )
 
-        by_name: dict[str, ActivityTemplate] = {}
-        pending_replacements: list[tuple[ActivityTemplate, str]] = []
-
-        for row in activities:
-            if len(row) == 10:
-                (day_offset, category, name, repeat_interval, repeat_count, remarks,
-                 is_conditional, feeds_context, trigger_logic, trigger_conditions) = row
-                valid_until_stage = max_delay_days = recovery_type = replacement_name = expected_impact = None
-            elif len(row) == 15:
-                (day_offset, category, name, repeat_interval, repeat_count, remarks,
-                 is_conditional, feeds_context, trigger_logic, trigger_conditions,
-                 valid_until_stage, max_delay_days, recovery_type, replacement_name, expected_impact) = row
-            else:
-                raise ValueError(
-                    f"Unexpected activity tuple length {len(row)} for {crop_name!r} "
-                    f"(expected 10 or 15 fields): {row!r}"
+        for (day_offset, category, name, repeat_interval, repeat_count, remarks,
+             is_conditional, feeds_context, trigger_logic, trigger_conditions) in activities:
+            session.add(
+                ActivityTemplate(
+                    version_id=new_version.id,
+                    name=name,
+                    category=category,
+                    day_offset=day_offset,
+                    repeat_interval_days=repeat_interval,
+                    repeat_count=repeat_count,
+                    default_remarks=remarks,
+                    is_conditional=is_conditional,
+                    feeds_context=feeds_context,
+                    trigger_logic=trigger_logic,
+                    trigger_conditions=trigger_conditions,
                 )
-
-            template = ActivityTemplate(
-                version_id=new_version.id,
-                name=name,
-                category=category,
-                day_offset=day_offset,
-                repeat_interval_days=repeat_interval,
-                repeat_count=repeat_count,
-                default_remarks=remarks,
-                is_conditional=is_conditional,
-                feeds_context=feeds_context,
-                trigger_logic=trigger_logic,
-                trigger_conditions=trigger_conditions,
-                valid_until_stage=valid_until_stage,
-                max_delay_days=max_delay_days,
-                recovery_type=recovery_type,
-                expected_impact=expected_impact,
             )
-            session.add(template)
-            session.flush()  # need template.id available for by-name lookup below
-            by_name[name] = template
-            if replacement_name:
-                pending_replacements.append((template, replacement_name))
-
-        for template, replacement_name in pending_replacements:
-            target = by_name.get(replacement_name)
-            if target is None:
-                raise ValueError(
-                    f"{crop_name!r} version {next_number}: activity {template.name!r} "
-                    f"names a replacement_operation {replacement_name!r} that doesn't "
-                    f"match any activity name in this same version."
-                )
-            template.replacement_template_id = target.id
-        session.flush()
 
         print(f"Created version {next_number} for {crop_name!r}: {label}")
 

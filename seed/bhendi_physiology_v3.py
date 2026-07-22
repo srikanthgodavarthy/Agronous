@@ -17,7 +17,7 @@ Run with:  python -m seed.bhendi_physiology_v3
 """
 from __future__ import annotations
 
-from db.models import ActivityCategory, RecoveryStrategy, TriggerLogic
+from db.models import ActivityCategory, TriggerLogic
 from seed.crop_master_seed import create_new_version
 
 
@@ -46,38 +46,20 @@ def _card(*, priority, category, product, dosage, method, timing,
     return " ".join(parts)
 
 
-def _layer1(day_offset, category, name, repeat_interval, repeat_count, remarks, *,
-            valid_until_stage=None, max_delay_days=None, recovery_type=None,
-            replacement=None, expected_impact=None):
-    """Planned operation: always scheduled at season creation, unconditional.
-    Recovery metadata (keyword-only, all optional) tells the Recovery Engine
-    what to do if this is still PENDING once it's overdue -- see the
-    RecoveryStrategy note in db/models.py. Leaving them unset preserves the
-    old behavior exactly (legacy category-based fallback in recovery_engine.py)."""
+def _layer1(day_offset, category, name, repeat_interval, repeat_count, remarks):
+    """Planned operation: always scheduled at season creation, unconditional."""
     return (day_offset, category, name, repeat_interval, repeat_count, remarks,
-            False, False, None, None,
-            valid_until_stage, max_delay_days, recovery_type, replacement, expected_impact)
+            False, False, None, None)
 
 
-def _layer1_5(day_offset, category, name, remarks, *,
-              valid_until_stage=None, max_delay_days=None, recovery_type=None,
-              replacement=None, expected_impact=None):
+def _layer1_5(day_offset, category, name, remarks):
     """Mandatory assessment: always scheduled, produces evidence, never conditional."""
-    return (day_offset, category, name, None, 1, remarks, False, True, None, None,
-            valid_until_stage, max_delay_days, recovery_type, replacement, expected_impact)
+    return (day_offset, category, name, None, 1, remarks, False, True, None, None)
 
 
-def _layer2(day_offset, category, name, remarks, trigger_conditions, trigger_logic=TriggerLogic.ALL, *,
-            valid_until_stage=None, max_delay_days=None, recovery_type=None,
-            replacement=None, expected_impact=None):
-    """Conditional operation: never auto-materializes; Decision Engine gates it.
-    trigger_conditions=None (with recovery_type left unset elsewhere) is also
-    the pattern used for a *recovery-only* replacement template -- never
-    materialized by the Decision Engine (it requires trigger_conditions to
-    be truthy), only ever materialized by the Recovery Engine substituting
-    for a different, expired activity."""
-    return (day_offset, category, name, None, 1, remarks, True, False, trigger_logic, trigger_conditions,
-            valid_until_stage, max_delay_days, recovery_type, replacement, expected_impact)
+def _layer2(day_offset, category, name, remarks, trigger_conditions, trigger_logic=TriggerLogic.ALL):
+    """Conditional operation: never auto-materializes; Decision Engine gates it."""
+    return (day_offset, category, name, None, 1, remarks, True, False, trigger_logic, trigger_conditions)
 
 
 STAGES = [
@@ -393,38 +375,8 @@ ACTIVITIES = [
         benefit="Drives active vegetative growth and branching that supports later fruiting.",
         precautions="Broadcast evenly and irrigate immediately to avoid surface volatilization losses; "
                     "avoid contact with foliage.",
-    ),
-        # Recovery metadata: this dose only does its job while the plant is
-        # still building vegetative framework. Once flowering has started
-        # the plant's demand has moved on -- recommending it "late" would be
-        # agronomically wrong, so a missed dose is replaced with the
-        # Flowering Nutrition Program below instead of ever being suggested
-        # as-is past Rapid Vegetative Growth.
-        valid_until_stage="Rapid Vegetative Growth",
-        recovery_type=RecoveryStrategy.REPLACE,
-        replacement="Flowering Nutrition Program (Recovery)",
-        expected_impact="Vegetative Nitrogen top-dress window closed; the Flowering Nutrition "
-                         "Program (MKP + Calcium + Boron) partially compensates the missed input "
-                         "by covering the plant's next real nutrient demand instead.",
-    ),
-    _layer2(46, ActivityCategory.FERTILIZER, "Flowering Nutrition Program (Recovery)", _card(
-        priority="Essential", category="Foliar Nutrition",
-        product="Mono Potassium Phosphate (MKP) + Calcium Nitrate + Borax",
-        composition="MKP 0:52:34; Ca(NO3)2 15.5N+19Ca; Borax 11% B",
-        dosage="MKP 5 g/L + Calcium Nitrate 2 g/L + Borax 1 g/L", water_volume="200 litres/acre",
-        method="Combined foliar spray (jar-test tank-mix compatibility first)",
-        timing="Evening, at flowering onset",
-        purpose="Covers the P/K/Ca/B demand a missed vegetative-stage Nitrogen top-dressing "
-                "would have helped build toward, consolidated into one application now that "
-                "the plant has already moved into flowering.",
-        benefit="Recovers flowering-stage nutrient sufficiency in a single operation when an "
-                "earlier vegetative-stage input was missed, instead of applying it too late to matter.",
-        precautions="Do not tank-mix with copper-based fungicides. Not part of the normal Layer 1 "
-                    "schedule -- only ever recommended by the Recovery Engine as a substitute for "
-                    "the missed vegetative Nitrogen top-dressing.",
-    ), trigger_conditions=None),
+    )),
     _layer1(28, ActivityCategory.OTHER, "Improve Anchorage - Earthing Up", None, 1, _card(
-
         priority="Essential", category="Crop Operation", product="Light Hilling",
         dosage="Not applicable", method="Hand hoeing around base", timing="DAS 26-35",
         purpose="As stem height and eventual fruit load increase, the existing root collar "
