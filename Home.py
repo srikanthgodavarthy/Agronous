@@ -15,6 +15,7 @@ st.set_page_config(
 
 from app import dashboard_view
 from app.ui_helpers import require_active_season
+from i18n import t
 from seed.crop_master_seed import seed_crop_master
 from seed.bhendi_physiology_v2 import seed_bhendi_v2
 from seed.bhendi_physiology_v3 import seed_bhendi_v3
@@ -23,45 +24,47 @@ from seed.toor_dal_v1 import seed_toor_dal_v1
 col1, col2, col3 = st.columns([1, 1, 1])
 
 with col1:
-    if st.button("Synchronize Crop Master"):
+    if st.button(t("Synchronize Crop Master")):
         seed_crop_master()
-        st.success("Crop Master synchronized successfully.")
+        st.success(t("Crop Master synchronized successfully."))
 
 with col2:
-    if st.button("🌿 Apply Bhendi Physiology Engine (v3)"):
+    if st.button(t("🌿 Apply Bhendi Physiology Engine (v3)")):
         try:
             seed_bhendi_v3()
-            st.success("Bhendi v3 physiology engine applied. New seasons will use the updated schedule.")
+            st.success(t("Bhendi v3 physiology engine applied. New seasons will use the updated schedule."))
         except Exception as e:
-            st.error(f"Failed: {e}")
+            st.error(t("Failed: {error}", error=e))
 
 with col3:
-    if st.button("🌱 Apply Toor Dal Full Schedule (v1)"):
+    if st.button(t("🌱 Apply Toor Dal Full Schedule (v1)")):
         try:
             seed_toor_dal_v1()
             st.success(
-                "Toor Dal full schedule (v1) applied. New seasons will use the "
-                "updated 12-stage/60-activity template; existing seasons keep "
-                "the version they were created against -- recreate the season "
-                "to pick up the new schedule."
+                t(
+                    "Toor Dal full schedule (v1) applied. New seasons will use the "
+                    "updated 12-stage/60-activity template; existing seasons keep "
+                    "the version they were created against -- recreate the season "
+                    "to pick up the new schedule."
+                )
             )
         except Exception as e:
-            st.error(f"Failed: {e}")
+            st.error(t("Failed: {error}", error=e))
 
 st.divider()
 
-with st.expander("⚠️ Danger Zone"):
-    st.warning("This will permanently delete **all farms, seasons, schedules, expenses, revenue, and observations**. This cannot be undone.")
-    confirm = st.text_input("Type DELETE to confirm", key="delete_confirm")
-    if st.button("🗑️ Delete All Farms & Seasons", type="primary", disabled=confirm != "DELETE"):
+with st.expander(t("⚠️ Danger Zone")):
+    st.warning(t("This will permanently delete **all farms, seasons, schedules, expenses, revenue, and observations**. This cannot be undone."))
+    confirm = st.text_input(t("Type DELETE to confirm"), key="delete_confirm")
+    if st.button(t("🗑️ Delete All Farms & Seasons"), type="primary", disabled=confirm != "DELETE"):
         try:
             from db.base import session_scope
             from db.models import Farm
             with session_scope() as session:
                 deleted = session.query(Farm).delete(synchronize_session=False)
-            st.success(f"Deleted {deleted} farm(s) and all associated data.")
+            st.success(t("Deleted {n} farm(s) and all associated data.", n=deleted))
         except Exception as e:
-            st.error(f"Failed: {e}")
+            st.error(t("Failed: {error}", error=e))
 
 ctx = require_active_season()
 dashboard_view.render(ctx)

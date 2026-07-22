@@ -11,6 +11,7 @@ import streamlit as st
 
 from auth.supabase_auth import SINGLE_USER_ID
 from db.base import session_scope
+from i18n import language_switcher, t
 from repositories import farm_repo, season_repo
 from services.schedule_engine import calculate_das, current_stage_name
 
@@ -49,10 +50,12 @@ def render_sidebar_context() -> dict | None:
     currently selected season as a dict of useful derived fields, or None
     if there are no farms/seasons yet.
     """
+    language_switcher()
+
     with session_scope() as session:
         farms = farm_repo.list_farms(session, SINGLE_USER_ID)
         if not farms:
-            st.sidebar.info("No farms yet. Add one in **Farms & Seasons**.")
+            st.sidebar.info(t("No farms yet. Add one in **Farms & Seasons**."))
             return None
 
         farm_options = {f.name: f.id for f in farms}
@@ -61,7 +64,7 @@ def render_sidebar_context() -> dict | None:
         farm_names = list(farm_options.keys())
         farm_index = farm_names.index(default_farm_name) if default_farm_name in farm_names else 0
 
-        selected_farm_name = st.sidebar.selectbox("Farm", farm_names, index=farm_index, key="farm_selector")
+        selected_farm_name = st.sidebar.selectbox(t("Farm"), farm_names, index=farm_index, key="farm_selector")
         selected_farm_id = farm_options[selected_farm_name]
         st.session_state["active_farm_id"] = selected_farm_id
 
@@ -69,12 +72,12 @@ def render_sidebar_context() -> dict | None:
         seasons = [s for s in seasons if s.farm_id == selected_farm_id]
 
         if not seasons:
-            st.sidebar.info("No seasons for this farm yet. Add one in **Farms & Seasons**.")
+            st.sidebar.info(t("No seasons for this farm yet. Add one in **Farms & Seasons**."))
             return None
 
         def season_label(s):
             tag = "🟢" if s.status.value == "ACTIVE" else "⚪"
-            return f"{tag} {s.crop.name} - sown {s.sowing_date.strftime('%d %b %Y')}"
+            return f"{tag} {s.crop.name} - {t('sown')} {s.sowing_date.strftime('%d %b %Y')}"
 
         season_options = {season_label(s): s.id for s in seasons}
         default_season_id = st.session_state.get("active_season_id")
@@ -82,7 +85,7 @@ def render_sidebar_context() -> dict | None:
         season_names = list(season_options.keys())
         season_index = season_names.index(default_season_name) if default_season_name in season_names else 0
 
-        selected_season_name = st.sidebar.selectbox("Season", season_names, index=season_index, key="season_selector")
+        selected_season_name = st.sidebar.selectbox(t("Season"), season_names, index=season_index, key="season_selector")
         selected_season_id = season_options[selected_season_name]
         st.session_state["active_season_id"] = selected_season_id
 
@@ -111,10 +114,12 @@ def require_active_season() -> dict:
     """Stops the page with a welcome message if no season is selected."""
     ctx = render_sidebar_context()
     if ctx is None:
-        st.title("👋 Welcome to Cultivation")
+        st.title(t("👋 Welcome to Cultivation"))
         st.markdown(
-            "Get started by adding your first **Farm** and **Season** "
-            "from the **Farms & Seasons** page in the sidebar."
+            t(
+                "Get started by adding your first **Farm** and **Season** "
+                "from the **Farms & Seasons** page in the sidebar."
+            )
         )
         st.stop()
     return ctx

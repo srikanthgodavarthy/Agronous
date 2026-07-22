@@ -10,6 +10,7 @@ import streamlit as st
 from app.ui_helpers import ALERT_GREEN, ALERT_RED, ALERT_YELLOW, require_active_season
 from db.base import session_scope
 from db.models import ActivityStatus, ScheduleActivity, Season
+from i18n import t
 from services.alert_engine import refresh_alerts_for_season
 
 st.set_page_config(page_title="Weekly Alerts", page_icon="🔔", layout="wide")
@@ -31,6 +32,11 @@ PRIORITY_META = {
     "GREEN":  {"label": "🟢 Coming up — this week",  "card_style": "background:#f0faf4; border-color:#b6e4cb;", "pill": "background:#f0faf4; color:#3b6d11; border:0.5px solid #b6e4cb;"},
 }
 
+# NOTE: PRODUCT_HINTS below holds agronomic dose/product reference notes.
+# These are kept in English only -- they're precise technical dosing
+# instructions, and machine-translating agrochemical names/units carries a
+# real risk of introducing a dosing error, so they're deliberately left as
+# authored rather than auto-translated.
 PRODUCT_HINTS = {
     "dap":        {"dose": "40 kg/acre", "note": "Basal placement in furrows before sowing."},
     "urea":       {"dose": "30 kg/acre", "note": "Broadcast between rows, irrigate immediately."},
@@ -116,7 +122,7 @@ st.markdown("""
 ctx = require_active_season()
 season_id = ctx["season_id"]
 
-st.title("🔔 Weekly Alerts")
+st.title(t("🔔 Weekly Alerts"))
 st.caption(f"{ctx['farm_name']} · {ctx['crop_name']}" + (f" ({ctx['variety']})" if ctx["variety"] else ""))
 
 with session_scope() as session:
@@ -144,12 +150,12 @@ green  = [a for a in alerts_data if a["priority"] == "GREEN"]
 
 # Summary metrics
 m1, m2, m3 = st.columns(3)
-m1.metric("🔴 Overdue",       len(red))
-m2.metric("🟡 Due in 3 days", len(yellow))
-m3.metric("🟢 This week",     len(green))
+m1.metric(t("🔴 Overdue"),       len(red))
+m2.metric(t("🟡 Due in 3 days"), len(yellow))
+m3.metric(t("🟢 This week"),     len(green))
 
 if not alerts_data:
-    st.success("You're all caught up! No alerts right now. ✅")
+    st.success(t("You're all caught up! No alerts right now. ✅"))
     st.stop()
 
 st.divider()
@@ -159,8 +165,9 @@ def render_alert_group(priority: str, items: list[dict]) -> None:
         return
 
     pm = PRIORITY_META[priority]
+    task_word = t("task") if len(items) == 1 else t("tasks")
     st.markdown(
-        f"<div class='priority-pill' style='{pm['pill']}'>{pm['label']} · {len(items)} task{'s' if len(items)!=1 else ''}</div>",
+        f"<div class='priority-pill' style='{pm['pill']}'>{t(pm['label'])} · {len(items)} {task_word}</div>",
         unsafe_allow_html=True,
     )
 
@@ -178,11 +185,11 @@ def render_alert_group(priority: str, items: list[dict]) -> None:
         <div class='act-card' style='{pm["card_style"]}'>
             <div class='act-icon' style='background:{meta["bg"]}'>{meta["icon"]}</div>
             <div class='act-name'>{name}</div>
-            <div class='act-meta'>{act_date}{"<br>DAS " + str(das) if das != "" else ""}<br>{meta["label"]}</div>
+            <div class='act-meta'>{act_date}{"<br>DAS " + str(das) if das != "" else ""}<br>{t(meta["label"])}</div>
             <div class='act-spacer'></div>
             <div class='act-btns'>
-                <span class='act-btn btn-done' title='Mark done'>✓</span>
-                <span class='act-btn btn-skip' title='Skip'>⏭</span>
+                <span class='act-btn btn-done' title='{t("Mark done")}'>✓</span>
+                <span class='act-btn btn-skip' title='{t("Skip")}'>⏭</span>
             </div>
         </div>"""
     cards_html += "</div>"
@@ -199,11 +206,11 @@ def render_alert_group(priority: str, items: list[dict]) -> None:
         hint    = _get_hint(name, act.remarks or "", act.category.value)
         with st.expander(f"⚙ {name}", expanded=False):
             with st.form(f"alert_{priority}_{idx}_{act.id}"):
-                new_date    = st.date_input("Completion date", value=act.activity_date, key=f"ad_{priority}_{idx}")
-                new_remarks = st.text_area("Remarks", value=act.remarks or "", key=f"ar_{priority}_{idx}", height=60)
+                new_date    = st.date_input(t("Completion date"), value=act.activity_date, key=f"ad_{priority}_{idx}")
+                new_remarks = st.text_area(t("Remarks"), value=act.remarks or "", key=f"ar_{priority}_{idx}", height=60)
                 cc, skc = st.columns(2)
-                complete = cc.form_submit_button("✅ Done")
-                skip     = skc.form_submit_button("⏭ Skip")
+                complete = cc.form_submit_button(t("✅ Done"))
+                skip     = skc.form_submit_button(t("⏭ Skip"))
 
                 if complete or skip:
                     with ss() as session:

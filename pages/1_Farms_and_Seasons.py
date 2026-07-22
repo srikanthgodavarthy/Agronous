@@ -14,21 +14,22 @@ import streamlit as st
 from auth.supabase_auth import SINGLE_USER_ID
 from db.base import session_scope
 from db.models import SeasonStatus
+from i18n import t
 from repositories import crop_repo, farm_repo, season_repo
 from services.schedule_engine import generate_schedule_for_season
 
 st.set_page_config(page_title="Farms & Seasons - Cultivation", page_icon="🌱", layout="wide")
 
 
-st.title("🚜 Farms & Seasons")
+st.title(t("🚜 Farms & Seasons"))
 
-tab_seasons, tab_farms = st.tabs(["Seasons", "Farms"])
+tab_seasons, tab_farms = st.tabs([t("Seasons"), t("Farms")])
 
 # ---------------------------------------------------------------------------
 # FARMS TAB
 # ---------------------------------------------------------------------------
 with tab_farms:
-    st.subheader("Your Farms")
+    st.subheader(t("Your Farms"))
 
     with session_scope() as session:
         farms = farm_repo.list_farms(session, SINGLE_USER_ID)
@@ -39,47 +40,50 @@ with tab_farms:
             with st.container(border=True):
                 c1, c2, c3, c4 = st.columns([2, 2, 1, 1])
                 c1.markdown(f"**{name}**")
-                c2.markdown(location or "_No location set_")
+                c2.markdown(location or t("_No location set_"))
                 c3.markdown(f"{total_area or '—'} {area_unit}" if total_area else "—")
 
                 confirm_key = f"confirm_delete_farm_{fid}"
                 if not st.session_state.get(confirm_key):
-                    if c4.button("🗑️ Delete", key=f"delete_farm_{fid}"):
+                    if c4.button(t("🗑️ Delete"), key=f"delete_farm_{fid}"):
                         st.session_state[confirm_key] = True
                         st.rerun()
                 else:
                     st.warning(
-                        f"Delete **{name}**? This permanently deletes the farm and ALL its "
-                        "seasons (schedules, expenses, revenues, observations, alerts)."
+                        t(
+                            "Delete **{name}**? This permanently deletes the farm and ALL its "
+                            "seasons (schedules, expenses, revenues, observations, alerts).",
+                            name=name,
+                        )
                     )
                     cc1, cc2 = st.columns(2)
-                    if cc1.button("Yes, delete permanently", key=f"confirm_yes_{fid}", type="primary"):
+                    if cc1.button(t("Yes, delete permanently"), key=f"confirm_yes_{fid}", type="primary"):
                         with session_scope() as session:
                             farm_obj = farm_repo.get_farm(session, SINGLE_USER_ID, fid)
                             if farm_obj is not None:
                                 farm_repo.delete_farm(session, farm_obj)
                         del st.session_state[confirm_key]
                         st.rerun()
-                    if cc2.button("Cancel", key=f"confirm_no_{fid}"):
+                    if cc2.button(t("Cancel"), key=f"confirm_no_{fid}"):
                         del st.session_state[confirm_key]
                         st.rerun()
     else:
-        st.info("You haven't added any farms yet. Add your first one below.")
+        st.info(t("You haven't added any farms yet. Add your first one below."))
 
     st.divider()
-    st.subheader("➕ Add a New Farm")
+    st.subheader(t("➕ Add a New Farm"))
     with st.form("add_farm_form", clear_on_submit=True):
         c1, c2 = st.columns(2)
-        farm_name = c1.text_input("Farm Name *", placeholder="e.g. North Field")
-        location = c2.text_input("Location", placeholder="e.g. Nalgonda, Telangana")
+        farm_name = c1.text_input(t("Farm Name *"), placeholder=t("e.g. North Field"))
+        location = c2.text_input(t("Location"), placeholder=t("e.g. Nalgonda, Telangana"))
         c3, c4 = st.columns(2)
-        total_area = c3.number_input("Total Area", min_value=0.0, step=0.5, value=0.0)
-        area_unit = c4.selectbox("Area Unit", ["Acres", "Hectares", "Bigha", "Guntha"])
-        submitted = st.form_submit_button("Add Farm", type="primary")
+        total_area = c3.number_input(t("Total Area"), min_value=0.0, step=0.5, value=0.0)
+        area_unit = c4.selectbox(t("Area Unit"), ["Acres", "Hectares", "Bigha", "Guntha"], format_func=t)
+        submitted = st.form_submit_button(t("Add Farm"), type="primary")
 
         if submitted:
             if not farm_name.strip():
-                st.error("Farm name is required.")
+                st.error(t("Farm name is required."))
             else:
                 with session_scope() as session:
                     farm_repo.create_farm(
@@ -97,7 +101,7 @@ with tab_farms:
 # SEASONS TAB
 # ---------------------------------------------------------------------------
 with tab_seasons:
-    st.subheader("Your Cultivation Seasons")
+    st.subheader(t("Your Cultivation Seasons"))
 
     with session_scope() as session:
         farms = farm_repo.list_farms(session, SINGLE_USER_ID)
@@ -122,20 +126,20 @@ with tab_seasons:
                 c1, c2, c3, c4, c5 = st.columns([2, 1.5, 1.3, 1, 1])
                 c1.markdown(f"**{crop_name}**" + (f" _{variety}_" if variety else ""))
                 c2.markdown(f"📍 {farm_name}")
-                c3.markdown(f"🗓️ Sown {sowing_date.strftime('%d %b %Y')}")
+                c3.markdown(f"🗓️ {t('Sown')} {sowing_date.strftime('%d %b %Y')}")
                 c4.markdown(f"{area:.1f} {area_unit}")
-                badge = "🟢 Active" if status == "ACTIVE" else ("✅ Completed" if status == "COMPLETED" else "⚪ Abandoned")
+                badge = t("🟢 Active") if status == "ACTIVE" else (t("✅ Completed") if status == "COMPLETED" else t("⚪ Abandoned"))
                 c5.markdown(badge)
 
                 if status == "ACTIVE":
                     bc1, bc2, bc3 = st.columns(3)
-                    if bc1.button("Mark Completed", key=f"complete_{sid}"):
+                    if bc1.button(t("Mark Completed"), key=f"complete_{sid}"):
                         with session_scope() as session:
                             season_obj = season_repo.get_season(session, SINGLE_USER_ID, sid)
                             season_repo.update_season_status(session, season_obj, SeasonStatus.COMPLETED)
                         # rerun OUTSIDE session_scope
                         st.rerun()
-                    if bc2.button("Abandon", key=f"abandon_{sid}"):
+                    if bc2.button(t("Abandon"), key=f"abandon_{sid}"):
                         with session_scope() as session:
                             season_obj = season_repo.get_season(session, SINGLE_USER_ID, sid)
                             season_repo.update_season_status(session, season_obj, SeasonStatus.ABANDONED)
@@ -147,33 +151,37 @@ with tab_seasons:
 
                 confirm_key = f"confirm_delete_season_{sid}"
                 if not st.session_state.get(confirm_key):
-                    if delete_col.button("🗑️ Delete", key=f"delete_season_{sid}"):
+                    if delete_col.button(t("🗑️ Delete"), key=f"delete_season_{sid}"):
                         st.session_state[confirm_key] = True
                         st.rerun()
                 else:
                     st.warning(
-                        f"Delete this **{crop_name}** season on **{farm_name}**? This permanently "
-                        "deletes its schedule, expenses, revenues, observations, and alerts."
+                        t(
+                            "Delete this **{crop_name}** season on **{farm_name}**? This permanently "
+                            "deletes its schedule, expenses, revenues, observations, and alerts.",
+                            crop_name=crop_name,
+                            farm_name=farm_name,
+                        )
                     )
                     cc1, cc2 = st.columns(2)
-                    if cc1.button("Yes, delete permanently", key=f"confirm_yes_season_{sid}", type="primary"):
+                    if cc1.button(t("Yes, delete permanently"), key=f"confirm_yes_season_{sid}", type="primary"):
                         with session_scope() as session:
                             season_obj = season_repo.get_season(session, SINGLE_USER_ID, sid)
                             if season_obj is not None:
                                 season_repo.delete_season(session, season_obj)
                         del st.session_state[confirm_key]
                         st.rerun()
-                    if cc2.button("Cancel", key=f"confirm_no_season_{sid}"):
+                    if cc2.button(t("Cancel"), key=f"confirm_no_season_{sid}"):
                         del st.session_state[confirm_key]
                         st.rerun()
     else:
-        st.info("No seasons yet. Start your first cultivation cycle below.")
+        st.info(t("No seasons yet. Start your first cultivation cycle below."))
 
     st.divider()
-    st.subheader("➕ Start a New Season")
+    st.subheader(t("➕ Start a New Season"))
 
     if not farms:
-        st.warning("Add a Farm first (see the Farms tab) before starting a season.")
+        st.warning(t("Add a Farm first (see the Farms tab) before starting a season."))
     else:
         with session_scope() as session:
             crops = crop_repo.list_active_crops(session)
@@ -181,30 +189,32 @@ with tab_seasons:
 
         if not crops_data:
             st.error(
-                "No Crop Master templates found. An administrator needs to seed crop templates "
-                "(see seed/crop_master_seed.py) before seasons can be created."
+                t(
+                    "No Crop Master templates found. An administrator needs to seed crop templates "
+                    "(see seed/crop_master_seed.py) before seasons can be created."
+                )
             )
         else:
             with st.form("add_season_form"):
                 c1, c2 = st.columns(2)
                 farm_options = {f.name: f.id for f in farms}
-                selected_farm_name = c1.selectbox("Farm *", list(farm_options.keys()))
+                selected_farm_name = c1.selectbox(t("Farm *"), list(farm_options.keys()))
 
-                crop_options = {f"{name} (~{duration} days)": (cid, duration) for cid, name, duration in crops_data}
-                selected_crop_label = c2.selectbox("Crop *", list(crop_options.keys()))
+                crop_options = {f"{name} (~{duration} {t('days')})": (cid, duration) for cid, name, duration in crops_data}
+                selected_crop_label = c2.selectbox(t("Crop *"), list(crop_options.keys()))
 
                 c3, c4 = st.columns(2)
-                variety = c3.text_input("Variety (optional)", placeholder="e.g. IR-64, Bt-Hybrid")
-                sowing_date = c4.date_input("Sowing Date *", value=date.today())
+                variety = c3.text_input(t("Variety (optional)"), placeholder=t("e.g. IR-64, Bt-Hybrid"))
+                sowing_date = c4.date_input(t("Sowing Date *"), value=date.today())
 
                 c5, c6 = st.columns(2)
-                area = c5.number_input("Area *", min_value=0.1, step=0.5, value=1.0)
-                area_unit = c6.selectbox("Area Unit", ["Acres", "Hectares", "Bigha", "Guntha"])
+                area = c5.number_input(t("Area *"), min_value=0.1, step=0.5, value=1.0)
+                area_unit = c6.selectbox(t("Area Unit"), ["Acres", "Hectares", "Bigha", "Guntha"], format_func=t)
 
-                notes = st.text_area("Notes (optional)", placeholder="Any additional context for this season")
+                notes = st.text_area(t("Notes (optional)"), placeholder=t("Any additional context for this season"))
 
                 submitted = st.form_submit_button(
-                    "Create Season & Generate Schedule", type="primary", use_container_width=True
+                    t("Create Season & Generate Schedule"), type="primary", use_container_width=True
                 )
 
             # Handle submission OUTSIDE the form block so st.rerun() is safe
@@ -218,7 +228,7 @@ with tab_seasons:
                 with session_scope() as session:
                     current_version = crop_repo.get_current_version(session, crop_id)
                     if current_version is None:
-                        _error_msg = (
+                        _error_msg = t(
                             "This crop has no current template version configured. "
                             "An administrator needs to set one before seasons can be created for it."
                         )
@@ -238,10 +248,12 @@ with tab_seasons:
                         activities = generate_schedule_for_season(session, season)
                         st.session_state["active_farm_id"] = farm_id
                         st.session_state["active_season_id"] = season.id
-                        _success_msg = (
-                            f"Season created! Generated {len(activities)} scheduled activities "
-                            f"from the {selected_crop_label.split(' (')[0]} crop template "
-                            f"(version {current_version.version_number})."
+                        _success_msg = t(
+                            "Season created! Generated {n} scheduled activities "
+                            "from the {crop} crop template (version {version}).",
+                            n=len(activities),
+                            crop=selected_crop_label.split(" (")[0],
+                            version=current_version.version_number,
                         )
 
                 # st.rerun() / st.error() called AFTER session_scope has closed and committed

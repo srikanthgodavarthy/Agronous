@@ -338,3 +338,4 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Unclear": "అస్పష్టం",
     }
 }
+
