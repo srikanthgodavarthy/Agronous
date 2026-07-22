@@ -10,10 +10,8 @@ import streamlit as st
 
 from app.ui_helpers import require_active_season
 from db.base import session_scope
-from db.models import ActivityCategory, ActivityStatus, Season
+from db.models import ActivityCategory, ActivityStatus
 from repositories import schedule_repo
-from services.decisions import operation_bundling
-from services.decisions.recommendation_engine import build_schedule_snapshot
 from services.schedule_engine import calculate_das, current_stage_name
 
 st.set_page_config(page_title="Cultivation Schedule", page_icon="🌿", layout="wide")
@@ -219,17 +217,6 @@ def _pest_icon(name: str, remarks: str) -> str:
         if kw in text:
             return icon
     return PEST_ICON_DEFAULT
-
-
-# ── Combining same-day operations ──────────────────────────────────────────
-# A farmer doesn't want three separate "go to the field and spray/apply
-# something" cards for the same day when those inputs can physically be
-# tank-mixed or applied in one pass. Bundling logic now lives in
-# services/decisions/operation_bundling.py so the Recommendation Engine and
-# this page bundle exactly the same way from one place; this is a thin
-# page-local wrapper that supplies this page's _get_hint callback.
-def _combine_items(items: list[dict]) -> list[dict]:
-    return operation_bundling.combine_items(items, _get_hint)
 
 
 def _week_label(sowing_date: date, activity_date: date) -> str:
@@ -503,138 +490,6 @@ st.caption(
 )
 
 with session_scope() as session:
-    season_obj = session.get(Season, season_id)
-    snapshot = build_schedule_snapshot(session, season_obj, today=today)
-    recommended     = snapshot.recommended
-    also_actionable = snapshot.also_actionable
-    escalated_ids   = [(d.activity.id, d.activity.name, d.activity.activity_date, d.activity.das, d.reason)
-                       for d in snapshot.escalated]
-    replaced_names  = snapshot.replaced_names
-
-st.markdown("#### 🎯 Recommended Next Operation")
-if replaced_names:
-    for original, replacement in replaced_names:
-        st.caption(f"🔁 {original} missed its window — replaced with **{replacement}**.")
-
-if recommended:
-    rec_meta = CATEGORY_META.get(recommended.category, CATEGORY_META["OTHER"])
-    when = "Today" if recommended.recommended_date == today else (
-        "Overdue" if recommended.recommended_date < today else recommended.recommended_date.strftime("%d %b")
-    )
-    product_lines = "".join(
-        "<div style='font-size:12px;color:#3A362C;margin-top:2px;'>• {p}{d}</div>".format(
-            p=p, d=(" — " + recommended.dosage[i]) if i < len(recommended.dosage) and recommended.dosage[i] else ""
-        )
-        for i, p in enumerate(recommended.products)
-    )
-    tag_html = ""
-    if recommended.recovery_reason:
-        tag_label = "🔁 Replaced" if recommended.is_replacement else "⏰ Recovery"
-        tag_html = "<div style='font-size:11px;color:#8A5A2A;margin-top:6px;'><b>{}:</b> {}</div>".format(
-            tag_label, recommended.recovery_reason
-        )
-    st.markdown(
-        "<div style='background:{tint};border:1.5px solid {acc}55;border-radius:12px;padding:14px 18px;'>"
-        "<div style='font-size:10px;font-weight:800;color:{acc};text-transform:uppercase;'>{icon} {prio} · {when}</div>"
-        "<div style='font-size:15px;font-weight:700;color:#221F18;margin-top:4px;'>{name}</div>"
-        "{products}"
-        "<div style='font-size:11px;color:#6B6456;margin-top:6px;'><b>Why:</b> {why}</div>"
-        "{benefit}"
-        "{tag}"
-        "</div>".format(
-            tint=rec_meta["tint"], acc=rec_meta["accent"], icon=rec_meta["icon"], prio=recommended.priority,
-            when=when, name=recommended.name, products=product_lines, why=recommended.why,
-            benefit=(
-                "<div style='font-size:11px;color:#6B6456;margin-top:2px;'><b>Expected benefit:</b> {}</div>".format(
-                    recommended.expected_benefit
-                ) if recommended.expected_benefit else ""
-            ),
-            tag=tag_html,
-        ),
-        unsafe_allow_html=True,
-    )
-
-    rec_ask_key = "ask_date_{}".format(recommended.activity_ids[0])
-    rb1, rb2 = st.columns(2)
-    if rb1.button("✓ Mark Complete", key="rec_done_{}".format(recommended.activity_ids[0]), use_container_width=True, type="primary"):
-        st.session_state[rec_ask_key] = True
-        st.rerun()
-    if rb2.button("⏭ Skip", key="rec_skip_{}".format(recommended.activity_ids[0]), use_container_width=True):
-        with session_scope() as session:
-            for aid in recommended.activity_ids:
-                act = schedule_repo.get_activity(session, aid)
-                if act:
-                    schedule_repo.mark_skipped(session, act)
-        st.rerun()
-
-    if st.session_state.get(rec_ask_key):
-        with st.form(key="rec_form_{}".format(recommended.activity_ids[0])):
-            rec_chosen_date = st.date_input("Completion date", value=today, max_value=today,
-                                             key="rec_date_{}".format(recommended.activity_ids[0]))
-            rf1, rf2 = st.columns(2)
-            rec_confirm = rf1.form_submit_button("✓ Confirm", type="primary", use_container_width=True)
-            rec_cancel = rf2.form_submit_button("Cancel", use_container_width=True)
-        if rec_confirm:
-            with session_scope() as session:
-                for aid in recommended.activity_ids:
-                    act = schedule_repo.get_activity(session, aid)
-                    if act:
-                        schedule_repo.mark_complete(session, act, completed_date=rec_chosen_date)
-            st.session_state[rec_ask_key] = False
-            st.rerun()
-        if rec_cancel:
-            st.session_state[rec_ask_key] = False
-            st.rerun()
-else:
-    st.success("Nothing actionable right now — the crop is fully on track. ✅")
-
-if escalated_ids:
-    with st.expander(f"⚠️ {len(escalated_ids)} item(s) need a manual decision", expanded=False):
-        st.caption(
-            "These missed their planned window and have no authored recovery strategy yet, "
-            "so nothing was assumed on your behalf — acknowledge them as missed, or log it "
-            "if you actually did it late."
-        )
-        for act_id, act_name, act_date, act_das, reason in escalated_ids:
-            ec1, ec2 = st.columns([4, 1.6])
-            with ec1:
-                st.markdown(f"**{act_name}** — was due {act_date.strftime('%d %b')} (DAS {act_das})  \n_{reason}_")
-            with ec2:
-                if st.button("Acknowledge missed", key=f"esc_ack_{act_id}", use_container_width=True):
-                    with session_scope() as session:
-                        act = schedule_repo.get_activity(session, act_id)
-                        if act:
-                            schedule_repo.mark_skipped(session, act, remarks=f"Missed — {reason}")
-                    st.rerun()
-                if st.button("I did it late", key=f"esc_late_{act_id}", use_container_width=True):
-                    st.session_state[f"ask_date_{act_id}"] = True
-                    st.rerun()
-            if st.session_state.get(f"ask_date_{act_id}"):
-                with st.form(key=f"esc_form_{act_id}"):
-                    esc_chosen_date = st.date_input("Applied on", value=today, max_value=today, key=f"esc_date_{act_id}")
-                    ef1, ef2 = st.columns(2)
-                    esc_confirm = ef1.form_submit_button("✓ Confirm", type="primary", use_container_width=True)
-                    esc_cancel = ef2.form_submit_button("Cancel", use_container_width=True)
-                if esc_confirm:
-                    with session_scope() as session:
-                        act = schedule_repo.get_activity(session, act_id)
-                        if act:
-                            schedule_repo.mark_complete(session, act, completed_date=esc_chosen_date)
-                    st.session_state[f"ask_date_{act_id}"] = False
-                    st.rerun()
-                if esc_cancel:
-                    st.session_state[f"ask_date_{act_id}"] = False
-                    st.rerun()
-
-if also_actionable:
-    with st.expander(f"📋 Also pending ({len(also_actionable)})", expanded=False):
-        for i, op in enumerate(also_actionable):
-            st.markdown(f"**{i + 1}. {op.name}** · `{op.priority}` · due {op.recommended_date.strftime('%d %b')}")
-
-st.divider()
-
-
-with session_scope() as session:
     raw = schedule_repo.list_activities(session, season_id, status=None)
     all_activities = [
         {
@@ -770,11 +625,9 @@ for tab_idx, tab in enumerate(tabs):
             # Using len(row_items) columns would give 600px-wide cards when a
             # week has only 2 activities (e.g. Toor Dal). Fixed 4-col grid keeps
             # card width uniform; unused columns are naturally left empty.
-            display_items = _combine_items(items)
-
             ROW_SIZE = 4
-            for row_start in range(0, len(display_items), ROW_SIZE):
-                row_items = display_items[row_start : row_start + ROW_SIZE]
+            for row_start in range(0, len(items), ROW_SIZE):
+                row_items = items[row_start : row_start + ROW_SIZE]
                 cols = st.columns(4)  # always 4 — spare cols stay empty
 
                 for col, row in zip(cols, row_items):
@@ -837,19 +690,9 @@ for tab_idx, tab in enumerate(tabs):
                         pill_html = ""
                     status_row_html = "<div class='act-status-row'>{}</div>".format(pill_html)
 
-                    combined_chip_html = ""
-                    if row.get("members"):
-                        combined_chip_html = (
-                            "<div style='margin:8px 14px 0 14px;font-size:9px;font-weight:800;"
-                            "letter-spacing:0.04em;text-transform:uppercase;color:{a};"
-                            "background:{s};display:inline-block;padding:2px 8px;border-radius:6px;'>"
-                            "🔗 Combined · {n} ops</div>"
-                        ).format(a=acc, s=soft, n=len(row["members"]))
-
                     card_html = "".join([
                         "<div class='act-card'>",
                         "<span class='card-status-marker card-status-{}'></span>".format(eff_status),
-                        combined_chip_html,
                         "<div class='act-card-top'>",
                         icon_block,
                         "<div class='act-name-wrap'>",
@@ -907,55 +750,22 @@ for tab_idx, tab in enumerate(tabs):
                                 "<hr style='margin:6px 0 4px 0;border:none;border-top:1px solid {}33'>".format(acc),
                                 unsafe_allow_html=True,
                             )
-                            row_ids = row.get("ids", [row["id"]])
-                            ask_date_key = "ask_date_{}".format(row["id"])
-
                             b1, b2, b3 = st.columns(3)
                             if b1.button("✓", key=done_key, help="Mark complete", use_container_width=True):
-                                if eff_status in ("PENDING", "OVERDUE"):
-                                    st.session_state[ask_date_key] = True
-                                    st.rerun()
+                                with session_scope() as session:
+                                    act = schedule_repo.get_activity(session, row["id"])
+                                    if act:
+                                        schedule_repo.mark_complete(session, act)
+                                st.rerun()
                             if b2.button("⏭", key=skip_key, help="Skip", use_container_width=True):
-                                if eff_status in ("PENDING", "OVERDUE"):
-                                    with session_scope() as session:
-                                        for aid in row_ids:
-                                            act = schedule_repo.get_activity(session, aid)
-                                            if act:
-                                                schedule_repo.mark_skipped(session, act)
-                                    st.rerun()
+                                with session_scope() as session:
+                                    act = schedule_repo.get_activity(session, row["id"])
+                                    if act:
+                                        schedule_repo.mark_skipped(session, act)
+                                st.rerun()
                             detail_key = "detail_{}".format(row["id"])
                             if b3.button("ⓘ", key="info_{}_{}".format(tab_idx, row["id"]), help="Details", use_container_width=True):
                                 st.session_state[detail_key] = not st.session_state.get(detail_key, False)
-                                st.rerun()
-
-                        # ── Completion date confirmation ─────────────────────
-                        # Marking something complete asks *when* it was done —
-                        # defaults to today but lets a farmer log yesterday's
-                        # spray/fertilizer application accurately rather than
-                        # silently back-dating everything to "now".
-                        if st.session_state.get(ask_date_key):
-                            with st.container(border=True, key="dateconf_{}_{}".format(tab_idx, row["id"])):
-                                st.caption("When was **{}** completed?".format(row["name"]))
-                                with st.form(key="dateform_{}_{}".format(tab_idx, row["id"])):
-                                    chosen_date = st.date_input(
-                                        "Completion date",
-                                        value=today,
-                                        max_value=today,
-                                        key="cdate_{}_{}".format(tab_idx, row["id"]),
-                                    )
-                                    fc1, fc2 = st.columns(2)
-                                    confirm = fc1.form_submit_button("✓ Confirm", type="primary", use_container_width=True)
-                                    cancel = fc2.form_submit_button("Cancel", use_container_width=True)
-                            if confirm:
-                                with session_scope() as session:
-                                    for aid in row_ids:
-                                        act = schedule_repo.get_activity(session, aid)
-                                        if act:
-                                            schedule_repo.mark_complete(session, act, completed_date=chosen_date)
-                                st.session_state[ask_date_key] = False
-                                st.rerun()
-                            if cancel:
-                                st.session_state[ask_date_key] = False
                                 st.rerun()
 
                         # ── Detail drawer ────────────────────────────────────
